@@ -1,0 +1,23 @@
+// some ideas for how I want variables and functions to look
+let x = 4;
+let x{int 4};
+let x = int 4;
+var x = vec3 {0.1f, 0.1f, 0.1f};
+var x{vec3{0.1f, 0.1, 0.1f}};
+var x = {0.1f, 0.1f, 0.1f};
+
+func returnNothing() -> void {
+	
+}
+
+func returnString() -> string {
+	
+}
+
+func returnInt() -> int {
+	
+}
+
+func returnVec3() -> vec3 {
+	
+}

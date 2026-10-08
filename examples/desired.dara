@@ -1,0 +1,24 @@
+func add(x, y) {
+	return x + y;
+};
+
+func sub(x, y) {
+	return x - y;
+};
+
+func multiply(x, y) {
+	return x * y;
+};
+
+func divide(x, y) {
+	return x / y;
+};
+
+var result1 = add(1, 2);		// expected 3
+var result2 = sub(2, 1);		// expected 1
+var result3 = multiply(1, 2);	// expected 2
+var result4 = divide(2, 1);		// expected 2
+
+print(result1, result2, result3, result4);
+
+

@@ -1,0 +1,4 @@
+var name = "anakin rules";
+var other = "obi wan the best";
+print(name);
+print(other);

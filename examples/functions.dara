@@ -1,0 +1,6 @@
+func dosomething(x) {
+	print("This is our function calling!");
+	print(x);
+};
+
+dosomething("5");
