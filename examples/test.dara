@@ -1,3 +1,2 @@
-var name = "peter griffin";
-
-print(name);
+var x = "hello";
+var y = x;

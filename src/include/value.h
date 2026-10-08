@@ -43,4 +43,6 @@ value_T* valueInitStruct(void);
 value_T* valueStructSetField(value_T* value, const char* name, value_T* fieldValue);
 value_T* valueStructGetField(value_T* value, const char* name);
 
+value_T* valueCopy(const value_T* value);
+
 #endif

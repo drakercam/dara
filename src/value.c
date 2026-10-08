@@ -123,3 +123,38 @@ value_T* valueStructGetField(value_T* value, const char* name) {
 	
 	return (void*)0;
 }
+
+value_T* valueCopy(const value_T* value) {
+	if (value == (void*)0) {
+		return (void*)0;
+	}
+	
+	switch (value->type) {
+		case VALUE_NULL:
+			return valueInit(VALUE_NULL);
+
+		case VALUE_NUMBER:
+			return valueInitNumber(value->numberValue);
+
+		case VALUE_STRING:
+			return valueInitString(value->stringValue);
+
+		case VALUE_STRUCT: {
+			value_T* copy = valueInitStruct();
+
+			for (size_t i = 0; i < value->structValue.fieldsSize; ++i) {
+				valueField_T* field = &value->structValue.fields[i];
+
+				valueStructSetField(
+					copy,
+					field->name,
+					valueCopy(field->value)
+				);
+			}
+
+			return copy;
+		}
+	}
+	
+	return (void*)0;
+}

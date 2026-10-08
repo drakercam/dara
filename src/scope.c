@@ -5,11 +5,12 @@
 
 scope_T* scopeInit() {
 	scope_T* scope = calloc(1, sizeof(struct SCOPE_STRUCT));
+	
 	scope->functionDefinitions = (void*)0;
 	scope->functionDefinitionsSize = 0;
 	
-	scope->variableDefinitions = (void*)0;
-	scope->variableDefinitionsSize = 0;
+	scope->variables = (void*)0;
+	scope->variablesSize = 0;
 	
 	return scope;
 }
@@ -21,8 +22,15 @@ void scopeFree(scope_T* scope) {
 	
 	free(scope->functionDefinitions);
 	
-	free(scope->variableDefinitions);
-	
+	for (size_t i = 0; i < scope->variablesSize; ++i) {
+		variable_T* variable = scope->variables[i];
+
+		free(variable->name);
+		valueFree(variable->value);
+		free(variable);
+	}
+
+	free(scope->variables);
 	free(scope);
 }
 
@@ -56,54 +64,61 @@ ast_T* scopeGetFunctionDefinition(scope_T* scope, const char* funcName) {
 	return (void*)0;
 }
 
-ast_T* scopeAddVariableDefinition(scope_T* scope, ast_T* varDef) {
-	if (scope->variableDefinitions == (void*)0) {
-		scope->variableDefinitions = calloc(1, sizeof(ast_T*));
-		scope->variableDefinitions[0] = varDef;
-		scope->variableDefinitionsSize += 1;
-	}
-	else {
-		scope->variableDefinitionsSize += 1;
-		scope->variableDefinitions = realloc(
-			scope->variableDefinitions,
-			scope->variableDefinitionsSize * sizeof(ast_T*)
-		);
-		scope->variableDefinitions[scope->variableDefinitionsSize-1] = varDef;
-	}
+variable_T* scopeAddVariable(scope_T* scope, const char* name, value_T* value) {
+	variable_T* var = calloc(1, sizeof(variable_T));
 	
-	return varDef;
+	var->name = calloc(strlen(name) + 1, sizeof(char));
+	strcpy(var->name, name);
+	
+	var->value = value;
+	
+	scope->variablesSize += 1;
+	
+	scope->variables =
+		realloc(
+			scope->variables,
+			scope->variablesSize * sizeof(variable_T*)
+		);
+
+	scope->variables[scope->variablesSize - 1] = var;
+
+	return var;
 }
 
-ast_T* scopeGetVariableDefinition(scope_T* scope, const char* varName) {
-	for (size_t i = scope->variableDefinitionsSize; i-- > 0;) {
-		ast_T* varDef = scope->variableDefinitions[i];
+variable_T* scopeGetVariable(scope_T* scope, const char* name) {
+	for (size_t i = scope->variablesSize; i-- > 0;) {
+		variable_T* variable = scope->variables[i];
 
-		if (strcmp(varDef->variableDefinitionVariableName, varName) == 0) {
-			return varDef;
+		if (strcmp(variable->name, name) == 0) {
+			return variable;
 		}
 	}
-	
+
 	return (void*)0;
 }
 
-void scopeRemoveVariableDefinitions(scope_T* scope, size_t count)
-{
-    for (size_t i = 0; i < count; ++i) {
-        size_t index = scope->variableDefinitionsSize - 1;
+void scopeRemoveVariables(scope_T* scope, size_t count) {
+	for (size_t i = 0; i < count; ++i) {
+		
+		size_t index = scope->variablesSize - 1;
 
-        astFreeVariableDefinition(scope->variableDefinitions[index]);
+		variable_T* variable = scope->variables[index];
 
-        scope->variableDefinitionsSize -= 1;
-    }
+		free(variable->name);
+		valueFree(variable->value);
+		free(variable);
 
-    if (scope->variableDefinitionsSize == 0) {
-        free(scope->variableDefinitions);
-        scope->variableDefinitions = (void*)0;
-    }
-    else {
-        scope->variableDefinitions = realloc(
-            scope->variableDefinitions,
-            scope->variableDefinitionsSize * sizeof(ast_T*)
-        );
-    }
+		scope->variablesSize -= 1;
+	}
+
+	if (scope->variablesSize == 0) {
+		free(scope->variables);
+		scope->variables = (void*)0;
+	}
+	else {
+		scope->variables = realloc(
+				scope->variables,
+				scope->variablesSize * sizeof(variable_T*)
+		);
+	}
 }

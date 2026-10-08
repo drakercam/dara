@@ -1,24 +1,12 @@
 #include "include/visitor.h"
 #include "include/scope.h"
+#include "include/value.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 static ast_T* builtinFunctionPrint(visitor_T* visitor, ast_T** args, int argsSize) {
-	for (int i = 0; i < argsSize; ++i) {
-		ast_T* visitedAst = visitorVisit(visitor, args[i]);
-		
-		switch(visitedAst->type) {
-			
-			case AST_STRING:
-				printf("%s\n", visitedAst->stringValue);
-				//return (void*)0;
-				//break;
-		}
-		
-		//printf("%p\n", visitedAst);
-	}
 	
 	return (void*)0;
 }
@@ -37,7 +25,7 @@ void visitorFree(visitor_T* visitor) {
 	free(visitor);
 }
 
-ast_T* visitorVisit(visitor_T* visitor, ast_T* node) {
+value_T* visitorVisit(visitor_T* visitor, ast_T* node) {
 	
 	//printf("type=%d\n", node->type);
 		
@@ -68,99 +56,57 @@ ast_T* visitorVisit(visitor_T* visitor, ast_T* node) {
 			break;
 			
 		case AST_NOOP:
-			return node;
-			break;
+			return (void*)0;
 			
 	}
 	
 	printf("Uncaught statement of type '%d'\n", node->type);
-	return astInit(AST_NOOP);
+	return (void*)0;
 }
 
-ast_T* visitorVisitVariableDefinition(visitor_T* visitor, ast_T* node) {
-	scopeAddVariableDefinition(node->scope, node);
+value_T* visitorVisitVariableDefinition(visitor_T* visitor, ast_T* node) {
+	value_T* value = visitorVisit(visitor, node->variableDefinitionValue);
 	
-	return node;
-}
-
-ast_T* visitorVisitFunctionDefinition(visitor_T* visitor, ast_T* node) {
-	scopeAddFunctionDefinition(node->scope, node);
+	scopeAddVariable(node->scope, node->variableDefinitionVariableName, value);
 	
-	return node;
+	printf("Created variable '%s' with value '%s'\n", node->variableDefinitionVariableName, value->stringValue);
+	
+	return (void*)0;
 }
 
-ast_T* visitorVisitVariable(visitor_T* visitor, ast_T* node) {
+value_T* visitorVisitFunctionDefinition(visitor_T* visitor, ast_T* node) {
+	return (void*)0;
+}
+
+value_T* visitorVisitVariable(visitor_T* visitor, ast_T* node) {
 		
-	ast_T* varDef = scopeGetVariableDefinition(node->scope, node->variableName);
-		
-	if (varDef != (void*)0) {
-		return visitorVisit(visitor, varDef->variableDefinitionValue);
+	variable_T* var = scopeGetVariable(node->scope, node->variableName);
+				
+	if (var != (void*)0) {
+		return valueCopy(var->value);
 	}
 	
 	printf("Undefined variable '%s'\n", node->variableName);
 	exit(1);
 }
 
-ast_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node) {
-	
-	if (strcmp(node->functionCallName, "print") == 0) {
-		return builtinFunctionPrint(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
-	}
-	
-	ast_T* funcDef = scopeGetFunctionDefinition(node->scope, node->functionCallName);
-	
-	if (funcDef == (void*)0) {
-		printf("Undefined method '%s'\n", node->functionCallName);
-		exit(1);
-	}
-	
-	if (funcDef->functionDefinitionArgsSize != node->functionCallArgumentsSize) {
-		printf("ERROR: Calling function: '%s' with '%d' argument(s)\n-- Expects '%d' argument(s)\n",
-					funcDef->functionDefinitionName,
-					node->functionCallArgumentsSize,
-					funcDef->functionDefinitionArgsSize
-		);
-		exit(1);
-	}
-	
-	for (int i = 0; i < funcDef->functionDefinitionArgsSize; ++i) {
-		// grab the variable from the function definition arguments
-		ast_T* astVar = (ast_T*)funcDef->functionDefinitionArgs[i];
-		
-		// grab the value from the function call arguments
-		ast_T* astValue = (ast_T*)node->functionCallArguments[i];
-		
-		// create variable definition
-		ast_T* varDef = astInit(AST_VARIABLE_DEFINITION);
-		
-		// copy variable name into variable definition
-		varDef->variableDefinitionVariableName = (char*)calloc(strlen(astVar->variableName) + 1, sizeof(char));
-		strcpy(varDef->variableDefinitionVariableName, astVar->variableName);
-		
-		// attach value to variable definition
-		varDef->variableDefinitionValue = astValue;
-		
-		scopeAddVariableDefinition(funcDef->functionDefinitionBody->scope, varDef);
-	}
-	
-	ast_T* result = visitorVisit(visitor, funcDef->functionDefinitionBody);
-	scopeRemoveVariableDefinitions(
-		funcDef->functionDefinitionBody->scope,
-		funcDef->functionDefinitionArgsSize
-	);
-		
-	return result;
-}
-
-ast_T* visitorVisitString(visitor_T* visitor, ast_T* node) {
-	
-	return node;
-}
-
-ast_T* visitorVisitCompound(visitor_T* visitor, ast_T* node) {
-	for (int i = 0; i < node->compoundSize; ++i) {
-		visitorVisit(visitor, node->compoundValue[i]);
-	}
+value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node) {
 	
 	return (void*)0;
+}
+
+value_T* visitorVisitString(visitor_T* visitor, ast_T* node) {
+	return valueInitString(node->stringValue);
+}
+
+value_T* visitorVisitCompound(visitor_T* visitor, ast_T* node) {
+	value_T* result = (void*)0;
+	
+	for (size_t i = 0; i < node->compoundSize; ++i) {
+		result = visitorVisit(visitor, node->compoundValue[i]);
+	}
+	
+	// returns the value of its last statement, which will be useful for 
+	// implementing return/expression handling
+	return result;
 }
