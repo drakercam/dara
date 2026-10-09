@@ -45,7 +45,10 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 			continue;
 		}
 		
-		if (isalnum(lexer->c))
+		if (isdigit((unsigned char)lexer->c))
+			return lexerCollectNumber(lexer);
+
+		if (isalpha((unsigned char)lexer->c))
 			return lexerCollectID(lexer);
 		
 		if (lexer->c == '"') {
@@ -102,6 +105,27 @@ token_T* lexerCollectString(lexer_T* lexer) {
 	lexerAdvance(lexer);    // skip closing quote
 		
 	return tokenInit(TOKEN_STRING, value);
+}
+
+token_T* lexerCollectNumber(lexer_T* lexer) {
+	char* value = calloc(1, sizeof(char));
+    value[0] = '\0';
+
+    while (isdigit((unsigned char)lexer->c)) {
+        char* s = lexerGetCurrCharAsStr(lexer);
+
+        value = realloc(
+            value,
+            (strlen(value) + strlen(s) + 1) * sizeof(char)
+        );
+
+        strcat(value, s);
+        free(s);
+
+        lexerAdvance(lexer);
+    }
+
+    return tokenInit(TOKEN_NUMBER, value);
 }
 
 token_T* lexerCollectID(lexer_T* lexer) {	

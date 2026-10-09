@@ -98,6 +98,14 @@ variable_T* scopeGetVariable(scope_T* scope, const char* name) {
 }
 
 void scopeRemoveVariables(scope_T* scope, size_t count) {
+	if (scope == (void*)0) {
+		return;
+	}
+	
+	if (count > scope->variablesSize) {
+		count = scope->variablesSize;
+	}
+	
 	for (size_t i = 0; i < count; ++i) {
 		
 		size_t index = scope->variablesSize - 1;
@@ -116,9 +124,13 @@ void scopeRemoveVariables(scope_T* scope, size_t count) {
 		scope->variables = (void*)0;
 	}
 	else {
-		scope->variables = realloc(
-				scope->variables,
-				scope->variablesSize * sizeof(variable_T*)
+		variable_T** variables = realloc(
+			scope->variables,
+			scope->variablesSize * sizeof(variable_T*)
 		);
+
+		if (variables != NULL) {
+			scope->variables = variables;
+		}
 	}
 }

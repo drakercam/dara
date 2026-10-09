@@ -1,2 +1,12 @@
-var x = "hello";
-var y = x;
+func greet(name) {
+    print(name);
+};
+
+func showNumber(n) {
+	print(n);
+};
+
+greet("Draker");
+showNumber(42);
+
+var x = 42; print(x);

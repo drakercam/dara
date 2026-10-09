@@ -88,12 +88,14 @@ ast_T* parserParseExpression(parser_T* parser, scope_T* scope) {
 		case TOKEN_STRING:
 			return parserParseString(parser, scope);
 			
+		case TOKEN_NUMBER:
+			return parserParseNumber(parser, scope);
+			
 		case TOKEN_ID:
 			return parserParseID(parser, scope);
 	}
-	printf("HERE\n");
 	printf("%d\n", parser->currentToken->type);
-	return astInit(AST_NOOP);
+	return (void*)0;
 }
 
 ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
@@ -228,6 +230,17 @@ ast_T* parserParseString(parser_T* parser, scope_T* scope) {
 	astString->scope = scope;
 	
 	return astString;
+}
+
+ast_T* parserParseNumber(parser_T* parser, scope_T* scope) {
+	ast_T* astNumber = astInit(AST_NUMBER);
+	astNumber->numberValue = strtod(parser->currentToken->value, (void*)0);
+	
+	parserEat(parser, TOKEN_NUMBER);
+	
+	astNumber->scope = scope;
+	
+	return astNumber;
 }
 
 ast_T* parserParseID(parser_T* parser, scope_T* scope) {
