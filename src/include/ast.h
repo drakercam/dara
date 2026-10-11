@@ -2,6 +2,7 @@
 #define AST_H
 
 #include <stddef.h>
+#include <stdbool.h>
 
 typedef struct AST_STRUCT {
 	enum {
@@ -12,7 +13,11 @@ typedef struct AST_STRUCT {
 		AST_STRING,
 		AST_COMPOUND,
 		AST_NOOP,
-		AST_NUMBER
+		AST_NUMBER,
+		AST_BOOLEAN,
+		AST_UNARY_OPERATION,
+		AST_BINARY_OPERATION,
+		AST_RETURN
 		
 	} type;
 	
@@ -46,6 +51,21 @@ typedef struct AST_STRUCT {
 	
 	// AST_NUMBER
 	double numberValue;
+	
+	// AST_BOOLEAN
+	bool booleanValue;
+	
+	// AST_UNARY_OPERATION
+	struct AST_STRUCT* unaryOperationOperand;
+	int unaryOperationType;
+	
+	// AST_BINARY_OPERATION
+	struct AST_STRUCT* binaryOperationLeft;
+	struct AST_STRUCT* binaryOperationRight;
+	int binaryOperationType;
+	
+	// AST_RETURN
+	struct AST_STRUCT* returnValue;
 	
 } ast_T;
 

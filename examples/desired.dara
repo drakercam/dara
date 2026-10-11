@@ -1,24 +1,67 @@
-func add(x, y) {
-	return x + y;
+import raylib as rl;
+import functions;
+from functions2 import hello;
+
+construct Player {
+	var x;
+	var y;
+	
+	@private
+	func printDebug(p) {
+		print(p.x, p.y);
+	};
+	
+	func update(p) {
+		p.x += 1;
+		p.y += 1;
+		printDebug(p);
+	};
+	
+	func draw(p) {
+		rl:DrawRectangle(p.x, p.y, 100, 100, rl:BLUE);
+	};
 };
 
-func sub(x, y) {
-	return x - y;
+construct Game {
+	var player;
+	var width;
+	var height;
+	var title;
+
+	func init(w, h, t) {
+		var game = Game{.player = Player{1, 1}, .width = w, .height = h, .title = t};
+		rl:InitWindow(game.width, game.height, game.title);
+		return game;
+	};
+	
+	func update(game) {
+		Player.update(game.player);
+	};
+	
+	func run(game) {
+		while (!rl:WindowShouldClose()) {
+			Game.update(game);
+		
+			rl:BeginDrawing();
+			rl:ClearBackground(rl:RED);
+			Player.draw(game.player);
+			rl:EndDrawing();
+		};
+	};
+	
+	func close() {
+		rl:CloseWindow();
+	};
 };
 
-func multiply(x, y) {
-	return x * y;
+invoke main {
+	var game = Game.init(800, 600, "untitled");
+	Game.run(game);
+	Game.close();
+	
+	functions:goodbye();
+	functions2:hello();
+
+	return SUCCESS;
 };
-
-func divide(x, y) {
-	return x / y;
-};
-
-var result1 = add(1, 2);		// expected 3
-var result2 = sub(2, 1);		// expected 1
-var result3 = multiply(1, 2);	// expected 2
-var result4 = divide(2, 1);		// expected 2
-
-print(result1, result2, result3, result4);
-
-
+	

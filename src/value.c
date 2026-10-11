@@ -20,12 +20,17 @@ void valueFree(value_T* value)
     switch (value->type) {
 
         case VALUE_NULL:
+			break;
+			
         case VALUE_NUMBER:
             break;
 
         case VALUE_STRING:
             free(value->stringValue);
             break;
+            
+        case VALUE_BOOLEAN:
+			break;
 
         case VALUE_STRUCT:
             for (size_t i = 0;
@@ -59,6 +64,14 @@ value_T* valueInitString(const char* string) {
 	
 	value->stringValue = calloc(strlen(string) + 1, sizeof(char));
 	strcpy(value->stringValue, string);
+	
+	return value;
+}
+
+value_T* valueInitBoolean(bool boolean) {
+	value_T* value = valueInit(VALUE_BOOLEAN);
+	
+	value->booleanValue = boolean;
 	
 	return value;
 }
@@ -135,6 +148,9 @@ value_T* valueCopy(const value_T* value) {
 
 		case VALUE_NUMBER:
 			return valueInitNumber(value->numberValue);
+			
+		case VALUE_BOOLEAN:
+			return valueInitBoolean(value->booleanValue);
 
 		case VALUE_STRING:
 			return valueInitString(value->stringValue);

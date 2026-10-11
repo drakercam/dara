@@ -1,10 +1,12 @@
 #include "include/visitor.h"
 #include "include/scope.h"
 #include "include/value.h"
+#include "include/token.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 static value_T* builtinFunctionPrint(visitor_T* visitor, ast_T** args, int argsSize) {
 	for (int i = 0; i < argsSize; ++i) {
@@ -17,11 +19,15 @@ static value_T* builtinFunctionPrint(visitor_T* visitor, ast_T** args, int argsS
 		switch (value->type) {
 			
 			case VALUE_NULL:
-				printf("null\n");
+				printf("noval\n");
 				break;
 				
 			case VALUE_NUMBER:
 				printf("%g\n", value->numberValue);
+				break;
+				
+			case VALUE_BOOLEAN:
+				printf("%s\n", value->booleanValue ? "true" : "false");
 				break;
 			
 			case VALUE_STRING:
@@ -37,6 +43,44 @@ static value_T* builtinFunctionPrint(visitor_T* visitor, ast_T** args, int argsS
 	}
 	
 	return (void*)0;
+}
+
+static value_T* builtinFunctionAdd(visitor_T* visitor, ast_T** args, int argsSize) {
+	int result = 0;
+	
+	for (int i = 0; i < argsSize; ++i) {
+		value_T* value = visitorVisit(visitor, args[i]);
+		
+		if (value == (void*)0) {
+			continue;
+		}
+		
+		switch (value->type) {
+				
+			case VALUE_NUMBER:
+				result += value->numberValue;
+			
+			default:
+				printf("ERROR::BUILTIN::ADD: Expected a number\n");
+				exit(1);
+		}
+		
+		valueFree(value);
+	}
+	
+	return (void*)0;
+}
+
+static value_T* builtinFunctionSub(visitor_T* visitor, ast_T** args, int argsSize) {
+	
+}
+
+static value_T* builtinFunctionMultiply(visitor_T* visitor, ast_T** args, int argsSize) {
+	
+}
+
+static value_T* builtinFunctionDivide(visitor_T* visitor, ast_T** args, int argsSize) {
+	
 }
 
 visitor_T* visitorInit() {
@@ -83,10 +127,26 @@ value_T* visitorVisit(visitor_T* visitor, ast_T* node) {
 			return visitorVisitNumber(visitor, node);
 			break;
 			
+		case AST_BOOLEAN:
+			return visitorVisitBoolean(visitor, node);
+			break;
+			
 		case AST_COMPOUND:
 			return visitorVisitCompound(visitor, node);
 			break;
 			
+		case AST_BINARY_OPERATION:
+			return visitorVisitBinaryOperation(visitor, node);
+			break;
+			
+		case AST_UNARY_OPERATION:
+			return visitorVisitUnaryOperation(visitor, node);
+			break;
+			
+		case AST_RETURN:
+			return visitorVisitReturn(visitor, node);
+			break;
+		
 		case AST_NOOP:
 			return (void*)0;
 			
@@ -171,12 +231,27 @@ value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node) {
 		);
 	}
 
-	visitorVisit(visitor, funcDef->functionDefinitionBody);
+	visitor->shouldReturn = false;
+
+	value_T* result = visitorVisit(visitor, funcDef->functionDefinitionBody);
+
+	bool didReturn = visitor->shouldReturn;
+	visitor->shouldReturn = false;
+
+	if (!didReturn) {
+		if (result != NULL) {
+			valueFree(result);
+		}
+
+		result = valueInit(VALUE_NULL);
+	}
 
 	scopeRemoveVariables(
 		funcDef->functionDefinitionBody->scope,
 		funcDef->functionDefinitionArgsSize
 	);
+	
+	return result;
 }
 
 value_T* visitorVisitString(visitor_T* visitor, ast_T* node) {
@@ -187,10 +262,19 @@ value_T* visitorVisitNumber(visitor_T* visitor, ast_T* node) {
 	return valueInitNumber(node->numberValue);
 }
 
+value_T* visitorVisitBoolean(visitor_T* visitor, ast_T* node) {
+	return valueInitBoolean(node->booleanValue);
+}
+
 value_T* visitorVisitCompound(visitor_T* visitor, ast_T* node) {
 	value_T* result = (void*)0;
 	
 	for (size_t i = 0; i < node->compoundSize; ++i) {
+		
+		if (visitor->shouldReturn) {
+			break;	// if the visitor visited a return statement, it stops execution and returns
+		}
+		
 		result = visitorVisit(visitor, node->compoundValue[i]);
 	}
 	
@@ -198,3 +282,162 @@ value_T* visitorVisitCompound(visitor_T* visitor, ast_T* node) {
 	// implementing return/expression handling
 	return result;
 }
+
+value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
+    value_T* left = visitorVisit(visitor, node->binaryOperationLeft);
+    value_T* right = visitorVisit(visitor, node->binaryOperationRight);
+
+    if (left == NULL || right == NULL) {
+        valueFree(left);
+        valueFree(right);
+        return NULL;
+    }
+
+    if (left->type != VALUE_NUMBER || right->type != VALUE_NUMBER) {
+        printf("Arithmetic operations require numeric operands\n");
+        valueFree(left);
+        valueFree(right);
+        exit(1);
+    }
+
+    double result;
+
+    switch (node->binaryOperationType) {
+        case TOKEN_PLUS:
+            result = left->numberValue + right->numberValue;
+            break;
+
+        case TOKEN_MINUS:
+            result = left->numberValue - right->numberValue;
+            break;
+
+        case TOKEN_MULTIPLY:
+            result = left->numberValue * right->numberValue;
+            break;
+
+        case TOKEN_DIVIDE:
+            if (right->numberValue == 0) {
+                printf("Division by zero\n");
+                valueFree(left);
+                valueFree(right);
+                exit(1);
+            }
+
+            result = left->numberValue / right->numberValue;
+            break;
+            
+        case TOKEN_EQUAL_EQUAL: {
+			bool comparison = left->numberValue == right->numberValue;
+			
+			valueFree(left);
+			valueFree(right);
+        
+			return valueInitBoolean(comparison);        
+		}
+			
+		case TOKEN_LESS: {
+			bool comparison = left->numberValue < right->numberValue;
+			
+			valueFree(left);
+			valueFree(right);
+        
+			return valueInitBoolean(comparison);
+		}
+		
+		case TOKEN_MORE: {
+			bool comparison = left->numberValue > right->numberValue;
+			
+			valueFree(left);
+			valueFree(right);
+        
+			return valueInitBoolean(comparison);
+		}
+		
+		case TOKEN_LESS_THAN_EQUAL: {
+			bool comparison = left->numberValue <= right->numberValue;
+			
+			valueFree(left);
+			valueFree(right);
+        
+			return valueInitBoolean(comparison);
+		}
+		
+		case TOKEN_MORE_THAN_EQUAL: {
+			bool comparison = left->numberValue >= right->numberValue;
+			
+			valueFree(left);
+			valueFree(right);
+        
+			return valueInitBoolean(comparison);
+		}
+		
+		case TOKEN_NOT: {
+			break;
+		}
+		
+		case TOKEN_NOT_EQUAL: {
+			bool comparison = left->numberValue != right->numberValue;
+			
+			valueFree(left);
+			valueFree(right);
+        
+			return valueInitBoolean(comparison);
+			break;
+		}
+
+        default:
+            printf("Unknown arithmetic operator\n");
+            valueFree(left);
+            valueFree(right);
+            exit(1);
+    }
+
+    valueFree(left);
+    valueFree(right);
+
+    return valueInitNumber(result);
+}
+
+value_T* visitorVisitUnaryOperation(visitor_T* visitor, ast_T* node) {
+	value_T* operand = visitorVisit(visitor, node->unaryOperationOperand);
+	
+	if (operand == (void*)0) {
+		return (void*)0;
+	}
+	
+	switch(node->unaryOperationType) {
+		case TOKEN_NOT: {
+			if (operand->type != VALUE_BOOLEAN) {
+				printf("Logical NOT requires a boolean operand\n");
+				valueFree(operand);
+				exit(1);
+			}
+			
+			bool result = !operand->booleanValue;
+			valueFree(operand);
+			return valueInitBoolean(result);
+		}
+			
+		default:
+			printf("Unknown Unary Operator\n");
+			valueFree(operand);
+			exit(1);
+	}
+}
+
+value_T* visitorVisitReturn(visitor_T* visitor, ast_T* node) {
+	value_T* result;
+	
+	if (node->returnValue == NULL) {
+		result = valueInit(VALUE_NULL);
+	}
+	else {
+		result = visitorVisit(visitor, node->returnValue);
+	}
+	
+	visitor->shouldReturn = true;
+	
+	return result;
+}
+
+

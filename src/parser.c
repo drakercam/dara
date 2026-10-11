@@ -82,28 +82,86 @@ ast_T* parserParseStatements(parser_T* parser, scope_T* scope) {
 }
 
 ast_T* parserParseExpression(parser_T* parser, scope_T* scope) {
-	
-	switch(parser->currentToken->type) {
-		
-		case TOKEN_STRING:
-			return parserParseString(parser, scope);
-			
-		case TOKEN_NUMBER:
-			return parserParseNumber(parser, scope);
-			
-		case TOKEN_ID:
-			return parserParseID(parser, scope);
+	ast_T* left = parserParseTerm(parser, scope);
+
+	while (parser->currentToken->type == TOKEN_PLUS || parser->currentToken->type == TOKEN_MINUS) {
+		int operationType = parser->currentToken->type;
+		parserEat(parser, operationType);
+
+		ast_T* right = parserParseTerm(parser, scope);
+
+		ast_T* operation = astInit(AST_BINARY_OPERATION);
+		operation->binaryOperationLeft = left;
+		operation->binaryOperationRight = right;
+		operation->binaryOperationType = operationType;
+		operation->scope = scope;
+
+		left = operation;
 	}
-	printf("%d\n", parser->currentToken->type);
-	return (void*)0;
+
+	return left;
 }
 
 ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
-	
+	switch (parser->currentToken->type) {
+		case TOKEN_STRING:
+			return parserParseString(parser, scope);
+
+		case TOKEN_NUMBER:
+			return parserParseNumber(parser, scope);
+
+		case TOKEN_ID:
+			if (strcmp(parser->currentToken->value, "true") == 0 ||
+				strcmp(parser->currentToken->value, "false") == 0) {
+				ast_T* astBoolean = astInit(AST_BOOLEAN);
+							
+				astBoolean->booleanValue = strcmp(parser->currentToken->value, "true") == 0;
+							
+				astBoolean->scope = scope;
+				
+				parserEat(parser, TOKEN_ID);
+							
+				return astBoolean;
+			}
+		
+			return parserParseID(parser, scope);
+			
+		case TOKEN_LEFTPAREN:
+			parserEat(parser, TOKEN_LEFTPAREN);
+			ast_T* expression = parserParseComparison(parser, scope);
+			parserEat(parser, TOKEN_RIGHTPAREN);
+			return expression;
+
+		default:
+			printf(
+				"Unexpected token in expression: '%s', with type %d\n",
+				parser->currentToken->value,
+				parser->currentToken->type
+			);
+			exit(1);
+	}
 }
 
+// handles multiplication and division which have a higher precedence than adding/subtracting
 ast_T* parserParseTerm(parser_T* parser, scope_T* scope) {
-	
+	ast_T* left = parserParseUnary(parser, scope);
+
+	while (parser->currentToken->type == TOKEN_MULTIPLY || parser->currentToken->type == TOKEN_DIVIDE) {
+		int operationType = parser->currentToken->type;
+		parserEat(parser, operationType);
+
+		ast_T* right = parserParseUnary(parser, scope);
+
+		ast_T* operation = astInit(AST_BINARY_OPERATION);
+		operation->binaryOperationLeft = left;
+		operation->binaryOperationRight = right;
+		operation->binaryOperationType = operationType;
+		operation->scope = scope;
+
+		left = operation;
+	}
+
+	return left;
 }
 
 ast_T* parserParseFunctionCall(parser_T* parser, scope_T* scope) {
@@ -117,14 +175,14 @@ ast_T* parserParseFunctionCall(parser_T* parser, scope_T* scope) {
 	functionCall->functionCallArguments = calloc(1, sizeof(ast_T*));
 	
 	if (parser->currentToken->type != TOKEN_RIGHTPAREN) {
-		ast_T* astExpression = parserParseExpression(parser, scope);
+		ast_T* astExpression = parserParseComparison(parser, scope);
 		functionCall->functionCallArguments[0] = astExpression;
 		functionCall->functionCallArgumentsSize += 1;
 		
 		while (parser->currentToken->type == TOKEN_COMMA) {
 			parserEat(parser, TOKEN_COMMA);
 			
-			ast_T* astExpression = parserParseExpression(parser, scope);
+			ast_T* astExpression = parserParseComparison(parser, scope);
 			functionCall->functionCallArgumentsSize += 1;
 			functionCall->functionCallArguments = realloc(functionCall->functionCallArguments, 
 											  functionCall->functionCallArgumentsSize * sizeof(ast_T*));
@@ -164,7 +222,7 @@ ast_T* parserParseVariableDefinition(parser_T* parser, scope_T* scope) {
 	
 	parserEat(parser, TOKEN_ID); // var name
 	parserEat(parser, TOKEN_EQUALS);
-	ast_T* variableDefinitionValue = parserParseExpression(parser, scope);
+	ast_T* variableDefinitionValue = parserParseComparison(parser, scope);
 	
 	ast_T* variableDefinition = astInit(AST_VARIABLE_DEFINITION);
 	variableDefinition->variableDefinitionVariableName = variableDefinitionVariableName;
@@ -174,6 +232,20 @@ ast_T* parserParseVariableDefinition(parser_T* parser, scope_T* scope) {
 	
 	return variableDefinition;
 	
+}
+
+ast_T* parserParseReturnStatement(parser_T* parser, scope_T* scope) {
+	parserEat(parser, TOKEN_ID);	// return
+	ast_T* returnStatement = astInit(AST_RETURN);
+	
+	returnStatement->scope = scope;
+	
+	if (parser->currentToken->type != TOKEN_SEMI &&
+		parser->currentToken->type != TOKEN_RIGHTBRACE) {
+		returnStatement->returnValue = parserParseComparison(parser, scope);
+	}
+	
+	return returnStatement;
 }
 
 ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope) {
@@ -190,22 +262,24 @@ ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope) {
 	parserEat(parser, TOKEN_LEFTPAREN);
 	
 	// this is where we handle function arguments
-	ast->functionDefinitionArgs = calloc(1, sizeof(ast_T*));
-	ast_T* arg = parserParseVariable(parser, scope);
-	ast->functionDefinitionArgsSize += 1;
-	ast->functionDefinitionArgs[ast->functionDefinitionArgsSize-1] = arg;
-		
-	while (parser->currentToken->type == TOKEN_COMMA) {
-		parserEat(parser, TOKEN_COMMA);
-		
-		ast->functionDefinitionArgsSize += 1;
-				
-		ast->functionDefinitionArgs = realloc(
-					ast->functionDefinitionArgs,
-					ast->functionDefinitionArgsSize * sizeof(ast_T*)
-		);
+	if (parser->currentToken->type != TOKEN_RIGHTPAREN) {
+		ast->functionDefinitionArgs = calloc(1, sizeof(ast_T*));
 		ast_T* arg = parserParseVariable(parser, scope);
+		ast->functionDefinitionArgsSize += 1;
 		ast->functionDefinitionArgs[ast->functionDefinitionArgsSize-1] = arg;
+			
+		while (parser->currentToken->type == TOKEN_COMMA) {
+			parserEat(parser, TOKEN_COMMA);
+			
+			ast->functionDefinitionArgsSize += 1;
+					
+			ast->functionDefinitionArgs = realloc(
+						ast->functionDefinitionArgs,
+						ast->functionDefinitionArgsSize * sizeof(ast_T*)
+			);
+			ast_T* arg = parserParseVariable(parser, scope);
+			ast->functionDefinitionArgs[ast->functionDefinitionArgsSize-1] = arg;
+		}
 	}
 	
 	parserEat(parser, TOKEN_RIGHTPAREN);
@@ -243,6 +317,50 @@ ast_T* parserParseNumber(parser_T* parser, scope_T* scope) {
 	return astNumber;
 }
 
+ast_T* parserParseComparison(parser_T* parser, scope_T* scope) {
+	ast_T* left = parserParseExpression(parser, scope);
+
+	while (parser->currentToken->type == TOKEN_EQUAL_EQUAL || 
+		   parser->currentToken->type == TOKEN_LESS ||
+		   parser->currentToken->type == TOKEN_MORE ||
+		   parser->currentToken->type == TOKEN_LESS_THAN_EQUAL ||
+		   parser->currentToken->type == TOKEN_MORE_THAN_EQUAL ||
+		   parser->currentToken->type == TOKEN_NOT_EQUAL) {
+		int operationType = parser->currentToken->type;
+		parserEat(parser, operationType);
+
+		ast_T* right = parserParseExpression(parser, scope);
+
+		ast_T* operation = astInit(AST_BINARY_OPERATION);
+		operation->binaryOperationLeft = left;
+		operation->binaryOperationRight = right;
+		operation->binaryOperationType = operationType;
+		operation->scope = scope;
+
+		left = operation;
+	}
+
+	return left;
+}
+
+ast_T* parserParseUnary(parser_T* parser, scope_T* scope) {
+	if (parser->currentToken->type == TOKEN_NOT) {
+		int operationType = parser->currentToken->type;
+		parserEat(parser, TOKEN_NOT);
+		
+		ast_T* operand = parserParseUnary(parser, scope);
+		
+		ast_T* operation = astInit(AST_UNARY_OPERATION);
+		operation->unaryOperationOperand = operand;
+		operation->unaryOperationType = operationType;
+		operation->scope = scope;
+		
+		return operation;
+	}
+	
+	return parserParseFactor(parser, scope);
+}
+
 ast_T* parserParseID(parser_T* parser, scope_T* scope) {
 	
 	if (strcmp(parser->currentToken->value, "var") == 0) {
@@ -250,6 +368,9 @@ ast_T* parserParseID(parser_T* parser, scope_T* scope) {
 	}
 	else if (strcmp(parser->currentToken->value, "func") == 0) {
 		return parserParseFunctionDefinition(parser, scope);
+	}
+	else if (strcmp(parser->currentToken->value, "return") == 0) {
+		return parserParseReturnStatement(parser, scope);
 	}
 	else {
 		return parserParseVariable(parser, scope);

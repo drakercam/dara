@@ -57,6 +57,14 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 		
 		switch (lexer->c) {
 			case '=':
+				if (lexer->contents[lexer->index + 1] == '=') {
+					char* value = calloc(3, sizeof(char));
+					value[0] = '=';
+					value[1] = '=';
+					
+					lexerAdvance(lexer);
+					return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_EQUAL_EQUAL, value));
+				}
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_EQUALS, lexerGetCurrCharAsStr(lexer)));
 				break;
 			case ';':
@@ -77,6 +85,54 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 			case ',':
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_COMMA, lexerGetCurrCharAsStr(lexer)));
 				break;
+			case '+':
+				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_PLUS, lexerGetCurrCharAsStr(lexer)));
+				break;
+			case '-':
+				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_MINUS, lexerGetCurrCharAsStr(lexer)));
+				break;
+			case '*':
+				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_MULTIPLY, lexerGetCurrCharAsStr(lexer)));
+				break;
+			case '/':
+				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_DIVIDE, lexerGetCurrCharAsStr(lexer)));
+				break;
+			case '<':	// handle < and <=
+				if (lexer->contents[lexer->index + 1] == '=') {
+					char* value = calloc(3, sizeof(char));
+					value[0] = '<';
+					value[1] = '=';
+					
+					lexerAdvance(lexer);
+					return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_LESS_THAN_EQUAL, value));
+				}
+			
+				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_LESS, lexerGetCurrCharAsStr(lexer)));
+				break;
+			case '>':	// handle > and >=
+				if (lexer->contents[lexer->index + 1] == '=') {
+					char* value = calloc(3, sizeof(char));
+					value[0] = '>';
+					value[1] = '=';
+					
+					lexerAdvance(lexer);
+					return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_MORE_THAN_EQUAL, value));
+				}
+				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_MORE, lexerGetCurrCharAsStr(lexer)));
+				break;
+				
+			case '!':	// handle ! and !=
+				if (lexer->contents[lexer->index + 1] == '=') {
+					char* value = calloc(3, sizeof(char));
+					value[0] = '!';
+					value[1] = '=';
+					
+					lexerAdvance(lexer);
+					return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_NOT_EQUAL, value));
+				}
+				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_NOT, lexerGetCurrCharAsStr(lexer)));
+				break;
+			
 			default:
 				printf("Unknown character: '%c' (%d)\n", lexer->c, lexer->c);
 				lexerAdvance(lexer);

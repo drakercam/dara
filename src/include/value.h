@@ -2,6 +2,7 @@
 #define VALUE_H
 
 #include <stddef.h>
+#include <stdbool.h>
 
 typedef struct VALUE_STRUCT value_T;
 
@@ -16,6 +17,7 @@ struct VALUE_STRUCT {
 		VALUE_NULL,
 		VALUE_NUMBER,
 		VALUE_STRING,
+		VALUE_BOOLEAN,
 		VALUE_STRUCT
 		
 	} type;
@@ -23,6 +25,7 @@ struct VALUE_STRUCT {
 	union {
 		double numberValue;
 		char* stringValue;
+		bool booleanValue;
 		
 		struct {
 			valueField_T* fields;
@@ -37,6 +40,7 @@ void valueFree(value_T* value);
 
 value_T* valueInitNumber(double number);
 value_T* valueInitString(const char* string);
+value_T* valueInitBoolean(bool boolean);
 
 value_T* valueInitStruct(void);
 

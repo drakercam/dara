@@ -33,6 +33,9 @@ ast_T* astInit(int type) {
 	ast->compoundValue = (void*)0;
 	ast->compoundSize = 0;
 	
+	// AST_RETURN
+	ast->returnValue = (void*)0;
+	
 	return ast;
 }
 
@@ -75,12 +78,31 @@ void astFree(ast_T* ast)
             free(ast->stringValue);
             break;
 
+		case AST_NUMBER:
+			break;
+		
+		case AST_BOOLEAN:
+			break;
+
         case AST_COMPOUND:
             for (size_t i = 0; i < ast->compoundSize; ++i)
                 astFree(ast->compoundValue[i]);
 
             free(ast->compoundValue);
             break;
+
+		case AST_BINARY_OPERATION:
+			astFree(ast->binaryOperationLeft);
+			astFree(ast->binaryOperationRight);
+			break;
+			
+		case AST_UNARY_OPERATION:
+			astFree(ast->unaryOperationOperand);
+			break;
+			
+		case AST_RETURN:
+			astFree(ast->returnValue);
+			break;
 
         case AST_NOOP:
             break;

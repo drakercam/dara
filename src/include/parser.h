@@ -26,10 +26,12 @@ ast_T* parserParseTerm(parser_T* parser, scope_T* scope);
 ast_T* parserParseFunctionCall(parser_T* parser, scope_T* scope);
 ast_T* parserParseVariable(parser_T* parser, scope_T* scope);
 ast_T* parserParseVariableDefinition(parser_T* parser, scope_T* scope);
+ast_T* parserParseReturnStatement(parser_T* parser, scope_T* scope);
 ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope);
 ast_T* parserParseString(parser_T* parser, scope_T* scope);
 ast_T* parserParseNumber(parser_T* parser, scope_T* scope);
-
+ast_T* parserParseComparison(parser_T* parser, scope_T* scope);
+ast_T* parserParseUnary(parser_T* parser, scope_T* scope);
 ast_T* parserParseID(parser_T* parser, scope_T* scope);
 
 #endif

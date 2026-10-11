@@ -1,12 +1,67 @@
-func greet(name) {
-    print(name);
+define raylib as rl;
+import functions;
+from functions import hello;
+
+construct Player {
+	var x;
+	var y;
+	
+	@private
+	func printDebug(p) {
+		print(p.x, p.y);
+	};
+	
+	func update(p) {
+		p.x += 1;
+		p.y += 1;
+		printDebug(p);
+	};
+	
+	func draw(p) {
+		rl:DrawRectangle(p.x, p.y, 100, 100, rl:BLUE);
+	};
 };
 
-func showNumber(n) {
-	print(n);
+construct Game {
+	var player;
+	var width;
+	var height;
+	var title;
+
+	func init(w, h, t) {
+		var game = Game{.player = Player{1, 1}, .width = w, .height = h, .title = t};
+		rl:InitWindow(game.width, game.height, game.title);
+		return game;
+	};
+	
+	func update(game) {
+		Player.update(game.player);
+	};
+	
+	func run(game) {
+		while (!rl:WindowShouldClose()) {
+			Game.update(game);
+		
+			rl:BeginDrawing();
+			rl:ClearBackground(rl:RED);
+			Player.draw(game.player);
+			rl:EndDrawing();
+		};
+	};
+	
+	func close() {
+		rl:CloseWindow();
+	};
 };
 
-greet("Draker");
-showNumber(42);
+invoke main {
+	var game = Game.init(800, 600, "untitled");
+	Game.run(game);
+	Game.close();
+	
+	functions:goodbye();
+	functions:hello();
 
-var x = 42; print(x);
+	return SUCCESS;
+};
+	
