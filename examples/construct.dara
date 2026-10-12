@@ -1,0 +1,7 @@
+construct Player {
+    var x;
+    var y;
+};
+
+var one = construct Player();
+print(one);

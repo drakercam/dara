@@ -12,6 +12,9 @@ scope_T* scopeInit() {
 	scope->variables = (void*)0;
 	scope->variablesSize = 0;
 	
+	scope->constructDefinitions = (void*)0;
+	scope->constructDefinitionsSize = 0;
+	
 	return scope;
 }
 
@@ -133,4 +136,32 @@ void scopeRemoveVariables(scope_T* scope, size_t count) {
 			scope->variables = variables;
 		}
 	}
+}
+
+ast_T* scopeAddConstructDefinition(scope_T* scope, ast_T* constructDef) {
+	scope->constructDefinitions = realloc(scope->constructDefinitions, 
+								  (scope->constructDefinitionsSize + 1) * sizeof(ast_T*)
+	);
+	
+	if (scope->constructDefinitions == (void*)0) {
+		return (void*)0;
+	}
+	
+	scope->constructDefinitions[scope->constructDefinitionsSize] = constructDef;
+	
+	scope->constructDefinitionsSize += 1;
+	
+	return constructDef;
+}
+
+ast_T* scopeGetConstructDefinition(scope_T* scope, const char* constructName) {
+	for (size_t i = 0; i < scope->constructDefinitionsSize; ++i) {
+		ast_T* constructDef = scope->constructDefinitions[i];
+		
+		if (strcmp(constructDef->constructDefinitionName, constructName) == 0) {
+			return constructDef;
+		}
+	}
+	
+	return (void*)0;
 }

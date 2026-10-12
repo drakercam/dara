@@ -34,8 +34,8 @@ static value_T* builtinFunctionPrint(visitor_T* visitor, ast_T** args, int argsS
 				printf("%s\n", value->stringValue);
 				break;
 				
-			case VALUE_STRUCT:
-				printf("<struct>\n");
+			case VALUE_CONSTRUCT:
+				printf("<construct>\n");
 				break;
 		}
 		
@@ -110,6 +110,24 @@ value_T* visitorVisit(visitor_T* visitor, ast_T* node) {
 		case AST_FUNCTION_DEFINITION:
 			return visitorVisitFunctionDefinition(visitor, node);
 			break;
+			
+		case AST_CONSTRUCT_DEFINITION:
+			scopeAddConstructDefinition(node->scope, node);
+			
+			ast_T* found = scopeGetConstructDefinition(
+				node->scope,
+				"Player"
+			);
+
+			printf("Found construct: %s\n",
+				found != NULL ? found->constructDefinitionName : "not found"
+			);
+			
+			return (void*)0;
+			
+		case AST_CONSTRUCT_INSTANTIATION:
+			return visitorVisitConstructInstantiation(visitor, node);
+			break;
 		
 		case AST_VARIABLE:
 			return visitorVisitVariable(visitor, node);
@@ -171,6 +189,23 @@ value_T* visitorVisitFunctionDefinition(visitor_T* visitor, ast_T* node) {
 	scopeAddFunctionDefinition(node->scope, node);
 	
 	return (void*)0;
+}
+
+value_T* visitorVisitConstructInstantiation(visitor_T* visitor, ast_T* node) {
+	ast_T* definition = scopeGetConstructDefinition(node->scope, node->constructInstantiationName);
+	
+	if (definition == (void*)0) {
+		printf("Undefined construct %s\n", node->constructInstantiationName);
+		exit(1);
+	}
+	
+	value_T* instance = valueInitConstruct();
+	
+	for (size_t i = 0; i < definition->constructDefinitionFieldsSize; ++i) {
+		valueConstructSetField(instance, definition->constructDefinitionFields[i], valueInit(VALUE_NULL));
+	}
+	
+	return instance;
 }
 
 value_T* visitorVisitVariable(visitor_T* visitor, ast_T* node) {

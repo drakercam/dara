@@ -18,6 +18,11 @@ ast_T* astInit(int type) {
 	ast->functionDefinitionArgs = (void*)0;
 	ast->functionDefinitionArgsSize = 0;
 	
+	// AST_CONSTRUCT_DEFINITION
+	ast->constructDefinitionName = (void*)0;
+	ast->constructDefinitionFields = (void*)0;
+	ast->constructDefinitionFieldsSize = 0;
+	
 	// AST_VARIABLE
 	ast->variableName = (void*)0;
 	
@@ -35,6 +40,9 @@ ast_T* astInit(int type) {
 	
 	// AST_RETURN
 	ast->returnValue = (void*)0;
+	
+	// AST_CONSTRUCT_INSTANTIATION
+	ast->constructInstantiationName = (void*)0;
 	
 	return ast;
 }
@@ -60,6 +68,16 @@ void astFree(ast_T* ast)
 
             astFree(ast->functionDefinitionBody);
             break;
+            
+        case AST_CONSTRUCT_DEFINITION:
+			free(ast->constructDefinitionName);
+
+            for (size_t i = 0; i < ast->constructDefinitionFieldsSize; ++i) {
+                free(ast->constructDefinitionFields[i]);
+            }
+
+            free(ast->constructDefinitionFields);
+			break;
 
         case AST_VARIABLE:
             free(ast->variableName);
@@ -102,6 +120,10 @@ void astFree(ast_T* ast)
 			
 		case AST_RETURN:
 			astFree(ast->returnValue);
+			break;
+			
+		case AST_CONSTRUCT_INSTANTIATION:
+			free(ast->constructInstantiationName);
 			break;
 
         case AST_NOOP:

@@ -32,19 +32,19 @@ void valueFree(value_T* value)
         case VALUE_BOOLEAN:
 			break;
 
-        case VALUE_STRUCT:
+        case VALUE_CONSTRUCT:
             for (size_t i = 0;
-                 i < value->structValue.fieldsSize;
+                 i < value->constructValue.fieldsSize;
                  ++i) {
 
                 valueField_T* field =
-                    &value->structValue.fields[i];
+                    &value->constructValue.fields[i];
 
                 free(field->name);
                 valueFree(field->value);
             }
 
-            free(value->structValue.fields);
+            free(value->constructValue.fields);
             break;
     }
 
@@ -76,23 +76,23 @@ value_T* valueInitBoolean(bool boolean) {
 	return value;
 }
 
-value_T* valueInitStruct(void) {
-	value_T* value = valueInit(VALUE_STRUCT);
+value_T* valueInitConstruct(void) {
+	value_T* value = valueInit(VALUE_CONSTRUCT);
 	
-	value->structValue.fields = (void*)0;
-	value->structValue.fieldsSize = 0;
+	value->constructValue.fields = (void*)0;
+	value->constructValue.fieldsSize = 0;
 	
 	return value;
 }
 
-value_T* valueStructSetField(value_T* value, const char* name, value_T* fieldValue) {
-	if (value->type != VALUE_STRUCT) {
+value_T* valueConstructSetField(value_T* value, const char* name, value_T* fieldValue) {
+	if (value->type != VALUE_CONSTRUCT) {
 		return (void*)0;
 	}
 	
-	for (size_t i = 0; i < value->structValue.fieldsSize; ++i) {
+	for (size_t i = 0; i < value->constructValue.fieldsSize; ++i) {
 		valueField_T* field =
-			&value->structValue.fields[i];
+			&value->constructValue.fields[i];
 
 		if (strcmp(field->name, name) == 0) {
 			valueFree(field->value);
@@ -102,32 +102,32 @@ value_T* valueStructSetField(value_T* value, const char* name, value_T* fieldVal
 		}
 	}
 	
-	size_t fieldIndex = value->structValue.fieldsSize;
+	size_t fieldIndex = value->constructValue.fieldsSize;
 	
-	value->structValue.fields = realloc(
-					value->structValue.fields, 
+	value->constructValue.fields = realloc(
+					value->constructValue.fields, 
 					(fieldIndex + 1) * sizeof(valueField_T)
 	);
 	
-	valueField_T* field = &value->structValue.fields[fieldIndex];
+	valueField_T* field = &value->constructValue.fields[fieldIndex];
 	
 	field->name = calloc(strlen(name) + 1, sizeof(char));
 	strcpy(field->name, name);
 	
 	field->value = fieldValue;
 	
-	value->structValue.fieldsSize += 1;
+	value->constructValue.fieldsSize += 1;
 	
 	return fieldValue;
 }
 
-value_T* valueStructGetField(value_T* value, const char* name) {
-	if (value->type != VALUE_STRUCT) {
+value_T* valueConstructGetField(value_T* value, const char* name) {
+	if (value->type != VALUE_CONSTRUCT) {
 		return (void*)0;
 	}
 	
-	for (size_t i = 0; i < value->structValue.fieldsSize; ++i) {
-		valueField_T* field = &value->structValue.fields[i];
+	for (size_t i = 0; i < value->constructValue.fieldsSize; ++i) {
+		valueField_T* field = &value->constructValue.fields[i];
 		
 		if (strcmp(field->name, name) == 0) {
 			return field->value;
@@ -155,13 +155,13 @@ value_T* valueCopy(const value_T* value) {
 		case VALUE_STRING:
 			return valueInitString(value->stringValue);
 
-		case VALUE_STRUCT: {
-			value_T* copy = valueInitStruct();
+		case VALUE_CONSTRUCT: {
+			value_T* copy = valueInitConstruct();
 
-			for (size_t i = 0; i < value->structValue.fieldsSize; ++i) {
-				valueField_T* field = &value->structValue.fields[i];
+			for (size_t i = 0; i < value->constructValue.fieldsSize; ++i) {
+				valueField_T* field = &value->constructValue.fields[i];
 
-				valueStructSetField(
+				valueConstructSetField(
 					copy,
 					field->name,
 					valueCopy(field->value)

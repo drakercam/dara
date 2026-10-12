@@ -8,6 +8,7 @@ typedef struct AST_STRUCT {
 	enum {
 		AST_VARIABLE_DEFINITION,
 		AST_FUNCTION_DEFINITION,
+		AST_CONSTRUCT_DEFINITION,
 		AST_VARIABLE,
 		AST_FUNCTION_CALL,
 		AST_STRING,
@@ -17,7 +18,8 @@ typedef struct AST_STRUCT {
 		AST_BOOLEAN,
 		AST_UNARY_OPERATION,
 		AST_BINARY_OPERATION,
-		AST_RETURN
+		AST_RETURN,
+		AST_CONSTRUCT_INSTANTIATION
 		
 	} type;
 	
@@ -66,6 +68,14 @@ typedef struct AST_STRUCT {
 	
 	// AST_RETURN
 	struct AST_STRUCT* returnValue;
+	
+	// AST_CONSTRUCT_DEFINITION
+	char* constructDefinitionName;
+	char** constructDefinitionFields;
+	size_t constructDefinitionFieldsSize;
+	
+	// AST_CONSTRUCT_INSTANTIATION
+	char* constructInstantiationName;
 	
 } ast_T;
 

@@ -16,6 +16,7 @@ value_T* visitorVisit(visitor_T* visitor, ast_T* node);
 
 value_T* visitorVisitVariableDefinition(visitor_T* visitor, ast_T* node);
 value_T* visitorVisitFunctionDefinition(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitConstructInstantiation(visitor_T* visitor, ast_T* node);
 value_T* visitorVisitVariable(visitor_T* visitor, ast_T* node);
 value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node);
 value_T* visitorVisitString(visitor_T* visitor, ast_T* node);

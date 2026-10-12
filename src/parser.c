@@ -103,6 +103,7 @@ ast_T* parserParseExpression(parser_T* parser, scope_T* scope) {
 }
 
 ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
+	
 	switch (parser->currentToken->type) {
 		case TOKEN_STRING:
 			return parserParseString(parser, scope);
@@ -111,6 +112,10 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 			return parserParseNumber(parser, scope);
 
 		case TOKEN_ID:
+			if (strcmp(parser->currentToken->value, "construct") == 0) {
+				return parserParseConstructInstantiation(parser, scope);
+			}
+		
 			if (strcmp(parser->currentToken->value, "true") == 0 ||
 				strcmp(parser->currentToken->value, "false") == 0) {
 				ast_T* astBoolean = astInit(AST_BOOLEAN);
@@ -293,6 +298,99 @@ ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope) {
 	return ast;
 }
 
+ast_T* parserParseConstructDefinition(parser_T* parser, scope_T* scope) {
+	ast_T* ast = astInit(AST_CONSTRUCT_DEFINITION);
+	ast->scope = scope;
+	
+	parserEat(parser, TOKEN_ID);	// construct keyword
+	
+	// store the construct name
+	if (parser->currentToken->type != TOKEN_ID) {
+		printf("Expected construct name\n");
+		exit(1);
+	}
+	
+	ast->constructDefinitionName = calloc(strlen(parser->currentToken->value) + 1, sizeof(char));
+	strcpy(ast->constructDefinitionName, parser->currentToken->value);
+	
+	parserEat(parser, TOKEN_ID);
+	
+	// begin construct body
+	parserEat(parser, TOKEN_LEFTBRACE);
+	
+	// parse field declarations
+	while (parser->currentToken->type != TOKEN_RIGHTBRACE) {
+		// for now only supported member is 'var name;'
+		if (parser->currentToken->type != TOKEN_ID || strcmp(parser->currentToken->value, "var") != 0) {
+			printf("Expected field declaration: var name;\n");
+			exit(1);
+		}
+		
+		parserEat(parser, TOKEN_ID);	// var
+		
+		if (parser->currentToken->type != TOKEN_ID) {
+			printf("Expected field name\n");
+			exit(1);
+		}
+		
+		// copy the field name into the construct AST
+		char* fieldName = calloc(strlen(parser->currentToken->value) + 1, sizeof(char));
+		strcpy(fieldName, parser->currentToken->value);
+		
+		parserEat(parser, TOKEN_ID);
+		
+		// Add field to the array
+		ast->constructDefinitionFields = realloc(
+			ast->constructDefinitionFields,
+			(ast->constructDefinitionFieldsSize + 1) * sizeof(char*)
+		);
+
+		if (ast->constructDefinitionFields == NULL) {
+			printf("Failed to allocate construct fields\n");
+			free(fieldName);
+			exit(EXIT_FAILURE);
+		}
+
+		ast->constructDefinitionFields[ast->constructDefinitionFieldsSize] = fieldName;
+		ast->constructDefinitionFieldsSize += 1;
+		parserEat(parser, TOKEN_SEMI);
+	}
+	
+	parserEat(parser, TOKEN_RIGHTBRACE);
+	
+	//~ printf("Construct: %s\n", ast->constructDefinitionName);
+	//~ printf("Field count: %zu\n", ast->constructDefinitionFieldsSize);
+
+	//~ for (size_t i = 0; i < ast->constructDefinitionFieldsSize; i++) {
+		//~ printf("Field %zu: %s\n", i, ast->constructDefinitionFields[i]);
+	//~ }
+	
+	return ast;
+}
+
+ast_T* parserParseConstructInstantiation(parser_T* parser, scope_T* scope) {
+	ast_T* ast = astInit(AST_CONSTRUCT_INSTANTIATION);
+	ast->scope = scope;
+	
+	parserEat(parser, TOKEN_ID);	// construct keyword
+	
+	if (parser->currentToken->type != TOKEN_ID) {
+		printf("Expected construct name\n");
+		exit(1);
+	}
+	
+	ast->constructInstantiationName = calloc(strlen(parser->currentToken->value) + 1, sizeof(char));
+	strcpy(ast->constructInstantiationName, parser->currentToken->value);
+	
+	parserEat(parser, TOKEN_ID);	// construct name
+	
+	parserEat(parser, TOKEN_LEFTPAREN);
+	// this is where we would setup designated initializers
+	parserEat(parser, TOKEN_RIGHTPAREN);
+	
+	return ast;
+}
+
 ast_T* parserParseString(parser_T* parser, scope_T* scope) {
 	
 	ast_T* astString = astInit(AST_STRING);
@@ -363,7 +461,10 @@ ast_T* parserParseUnary(parser_T* parser, scope_T* scope) {
 
 ast_T* parserParseID(parser_T* parser, scope_T* scope) {
 	
-	if (strcmp(parser->currentToken->value, "var") == 0) {
+	if (strcmp(parser->currentToken->value, "construct") == 0) {
+		return parserParseConstructDefinition(parser, scope);
+	}
+	else if (strcmp(parser->currentToken->value, "var") == 0) {
 		return parserParseVariableDefinition(parser, scope);
 	}
 	else if (strcmp(parser->currentToken->value, "func") == 0) {

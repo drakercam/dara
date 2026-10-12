@@ -18,7 +18,7 @@ struct VALUE_STRUCT {
 		VALUE_NUMBER,
 		VALUE_STRING,
 		VALUE_BOOLEAN,
-		VALUE_STRUCT
+		VALUE_CONSTRUCT
 		
 	} type;
 	
@@ -31,7 +31,7 @@ struct VALUE_STRUCT {
 			valueField_T* fields;
 			size_t fieldsSize;
 			
-		} structValue;
+		} constructValue;
 	};
 };
 
@@ -42,10 +42,10 @@ value_T* valueInitNumber(double number);
 value_T* valueInitString(const char* string);
 value_T* valueInitBoolean(bool boolean);
 
-value_T* valueInitStruct(void);
+value_T* valueInitConstruct(void);
 
-value_T* valueStructSetField(value_T* value, const char* name, value_T* fieldValue);
-value_T* valueStructGetField(value_T* value, const char* name);
+value_T* valueConstructSetField(value_T* value, const char* name, value_T* fieldValue);
+value_T* valueConstructGetField(value_T* value, const char* name);
 
 value_T* valueCopy(const value_T* value);
 

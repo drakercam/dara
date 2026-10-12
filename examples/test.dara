@@ -3,42 +3,47 @@ import functions;
 from functions import hello;
 
 construct Player {
-	var x;
-	var y;
+	float x;
+	float y;
 	
 	@private
-	func printDebug(p) {
+	func printDebug(p) -> noval {
 		print(p.x, p.y);
 	};
 	
-	func update(p) {
+	func update(p) -> noval {
 		p.x += 1;
 		p.y += 1;
 		printDebug(p);
 	};
 	
-	func draw(p) {
+	func draw(p) -> noval {
 		rl:DrawRectangle(p.x, p.y, 100, 100, rl:BLUE);
 	};
 };
 
 construct Game {
-	var player;
-	var width;
-	var height;
-	var title;
+	Player player;
+	float width;
+	float height;
+	string title;
 
-	func init(w, h, t) {
-		var game = Game{.player = Player{1, 1}, .width = w, .height = h, .title = t};
+	func init(w, h, t) -> Game {
+		Game game = construct Game(
+								.player = construct Player(1, 1),
+								.width = w,
+								.height = h,
+								.title = t
+		);
 		rl:InitWindow(game.width, game.height, game.title);
 		return game;
 	};
 	
-	func update(game) {
+	func update(game) -> noval {
 		Player.update(game.player);
 	};
 	
-	func run(game) {
+	func run(game) -> noval {
 		while (!rl:WindowShouldClose()) {
 			Game.update(game);
 		
@@ -49,19 +54,20 @@ construct Game {
 		};
 	};
 	
-	func close() {
+	func close() -> noval {
 		rl:CloseWindow();
 	};
 };
 
-invoke main {
-	var game = Game.init(800, 600, "untitled");
+invoke main -> int {
+	Game game = construct Game(.width = 800, .height = 600, .title = "untitled");
+	// can also do Game game = Game.init(800, 600, "untitled");
 	Game.run(game);
 	Game.close();
 	
 	functions:goodbye();
 	functions:hello();
 
-	return SUCCESS;
+	return 0;
 };
 	

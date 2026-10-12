@@ -4,3 +4,6 @@ func dosomething(x, y) {
 };
 
 dosomething("hello", "world");
+
+print(std:str.concat("hello", "world"));
+print("hello" + "world");

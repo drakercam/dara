@@ -28,6 +28,8 @@ ast_T* parserParseVariable(parser_T* parser, scope_T* scope);
 ast_T* parserParseVariableDefinition(parser_T* parser, scope_T* scope);
 ast_T* parserParseReturnStatement(parser_T* parser, scope_T* scope);
 ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope);
+ast_T* parserParseConstructDefinition(parser_T* parser, scope_T* scope);
+ast_T* parserParseConstructInstantiation(parser_T* parser, scope_T* scope);
 ast_T* parserParseString(parser_T* parser, scope_T* scope);
 ast_T* parserParseNumber(parser_T* parser, scope_T* scope);
 ast_T* parserParseComparison(parser_T* parser, scope_T* scope);
