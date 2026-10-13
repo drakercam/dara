@@ -1,0 +1,34 @@
+construct Player {
+    float x;
+    float y;
+    int health;
+    string name;
+    auto score;
+};
+
+auto one = construct Player(
+    .x = 100.0,
+    .y = 200.0,
+    .health = 100,
+    .name = "Player One"
+);
+
+print(one.x);
+print(one.y);
+print(one.score);
+
+func getHealth() -> int {
+    return 100;
+}
+
+func getName() -> string {
+    return "Player One";
+}
+
+func printHealth() -> noval {
+    print(100);
+}
+
+print(getHealth());
+print(getName());
+printHealth();

@@ -1,3 +1,73 @@
-var name = "peter griffin";
+define raylib as rl;
+import functions;
+from functions import hello;
 
-print(name);
+construct Player {
+	float x;
+	float y;
+	
+	@private
+	func printDebug(p) -> noval {
+		print(p.x, p.y);
+	};
+	
+	func update(p) -> noval {
+		p.x += 1;
+		p.y += 1;
+		printDebug(p);
+	};
+	
+	func draw(p) -> noval {
+		rl:DrawRectangle(p.x, p.y, 100, 100, rl:BLUE);
+	};
+};
+
+construct Game {
+	Player player;
+	float width;
+	float height;
+	string title;
+
+	func init(w, h, t) -> Game {
+		Game game = construct Game(
+								.player = construct Player(1, 1),
+								.width = w,
+								.height = h,
+								.title = t
+		);
+		rl:InitWindow(game.width, game.height, game.title);
+		return game;
+	};
+	
+	func update(game) -> noval {
+		Player.update(game.player);
+	};
+	
+	func run(game) -> noval {
+		while (!rl:WindowShouldClose()) {
+			Game.update(game);
+		
+			rl:BeginDrawing();
+			rl:ClearBackground(rl:RED);
+			Player.draw(game.player);
+			rl:EndDrawing();
+		};
+	};
+	
+	func close() -> noval {
+		rl:CloseWindow();
+	};
+};
+
+invoke main -> int {
+	Game game = construct Game(.width = 800, .height = 600, .title = "untitled");
+	// can also do Game game = Game.init(800, 600, "untitled");
+	Game.run(game);
+	Game.close();
+	
+	functions:goodbye();
+	functions:hello();
+
+	return 0;
+};
+	

@@ -18,6 +18,10 @@ void parserFree(parser_T* parser);
 void parserEat(parser_T* parser, int tokenType); // we expect a certain token, if not we die
 
 ast_T* parserParse(parser_T* parser, scope_T* scope);	// return our source code as an AST tree
+ast_T* parserParseIfStatement(parser_T* parser, scope_T* scope);
+ast_T* parserParseWhileLoop(parser_T* parser, scope_T* scope);
+ast_T* parserParseForLoop(parser_T* parser, scope_T* scope);
+ast_T* parserParseAssignment(parser_T* parser, scope_T* scope);
 ast_T* parserParseStatement(parser_T* parser, scope_T* scope);
 ast_T* parserParseStatements(parser_T* parser, scope_T* scope);
 ast_T* parserParseExpression(parser_T* parser, scope_T* scope);
@@ -26,9 +30,15 @@ ast_T* parserParseTerm(parser_T* parser, scope_T* scope);
 ast_T* parserParseFunctionCall(parser_T* parser, scope_T* scope);
 ast_T* parserParseVariable(parser_T* parser, scope_T* scope);
 ast_T* parserParseVariableDefinition(parser_T* parser, scope_T* scope);
+ast_T* parserParseReturnStatement(parser_T* parser, scope_T* scope);
 ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope);
+ast_T* parserParseNamespaceDefinition(parser_T* parser, scope_T* scope);
+ast_T* parserParseConstructDefinition(parser_T* parser, scope_T* scope);
+ast_T* parserParseConstructInstantiation(parser_T* parser, scope_T* scope);
 ast_T* parserParseString(parser_T* parser, scope_T* scope);
-
+ast_T* parserParseNumber(parser_T* parser, scope_T* scope);
+ast_T* parserParseComparison(parser_T* parser, scope_T* scope);
+ast_T* parserParseUnary(parser_T* parser, scope_T* scope);
 ast_T* parserParseID(parser_T* parser, scope_T* scope);
 
 #endif

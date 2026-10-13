@@ -11,45 +11,75 @@ value_T* valueInit(int type) {
 	return value;
 }
 
-void valueFree(value_T* value)
-{
-    if (value == NULL) {
-        return;
-    }
 
+static void valueFreeContents(value_T* value) {
     switch (value->type) {
-
         case VALUE_NULL:
-        case VALUE_NUMBER:
+        case VALUE_INT:
+        case VALUE_FLOAT:
+        case VALUE_BOOLEAN:
             break;
 
         case VALUE_STRING:
             free(value->stringValue);
             break;
 
-        case VALUE_STRUCT:
-            for (size_t i = 0;
-                 i < value->structValue.fieldsSize;
-                 ++i) {
+        case VALUE_CONSTRUCT:
+            free(value->constructValue.name);
 
+            for (size_t i = 0;
+                 i < value->constructValue.fieldsSize;
+                 ++i) {
                 valueField_T* field =
-                    &value->structValue.fields[i];
+                    &value->constructValue.fields[i];
 
                 free(field->name);
                 valueFree(field->value);
             }
 
-            free(value->structValue.fields);
+            free(value->constructValue.fields);
             break;
     }
+}
 
+void valueFree(value_T* value) {
+    if (value == (void*)0) {
+        return;
+    }
+
+    valueFreeContents(value);
     free(value);
 }
 
-value_T* valueInitNumber(double number) {
-	value_T* value = valueInit(VALUE_NUMBER);
+void valueReplace(value_T* destination, value_T* source) {
+    if (destination == (void*)0 || source == (void*)0 ||
+        destination == source) {
+        return;
+    }
+
+    // Release the destination's old contents, not its allocation.
+    valueFreeContents(destination);
+
+    // Transfer the source's contents into the existing destination.
+    memcpy(destination, source, sizeof(value_T));
+
+    // The destination now owns the transferred contents.
+    // Free only the source's outer allocation.
+    free(source);
+}
+
+value_T* valueInitInt(int number) {
+	value_T* value = valueInit(VALUE_INT);
 	
-	value->numberValue = number;
+	value->intValue = number;
+	
+	return value;
+}
+
+value_T* valueInitFloat(double number) {
+	value_T* value = valueInit(VALUE_FLOAT);
+	
+	value->floatValue = number;
 	
 	return value;
 }
@@ -63,23 +93,38 @@ value_T* valueInitString(const char* string) {
 	return value;
 }
 
-value_T* valueInitStruct(void) {
-	value_T* value = valueInit(VALUE_STRUCT);
+value_T* valueInitBoolean(bool boolean) {
+	value_T* value = valueInit(VALUE_BOOLEAN);
 	
-	value->structValue.fields = (void*)0;
-	value->structValue.fieldsSize = 0;
+	value->booleanValue = boolean;
 	
 	return value;
 }
 
-value_T* valueStructSetField(value_T* value, const char* name, value_T* fieldValue) {
-	if (value->type != VALUE_STRUCT) {
+value_T* valueInitConstruct(const char* name) {
+    value_T* value = valueInit(VALUE_CONSTRUCT);
+
+    value->constructValue.name = calloc(
+        strlen(name) + 1,
+        sizeof(char)
+    );
+
+    strcpy(value->constructValue.name, name);
+
+    value->constructValue.fields = (void*)0;
+    value->constructValue.fieldsSize = 0;
+
+    return value;
+}
+
+value_T* valueConstructSetField(value_T* value, const char* name, value_T* fieldValue) {
+	if (value->type != VALUE_CONSTRUCT) {
 		return (void*)0;
 	}
 	
-	for (size_t i = 0; i < value->structValue.fieldsSize; ++i) {
+	for (size_t i = 0; i < value->constructValue.fieldsSize; ++i) {
 		valueField_T* field =
-			&value->structValue.fields[i];
+			&value->constructValue.fields[i];
 
 		if (strcmp(field->name, name) == 0) {
 			valueFree(field->value);
@@ -89,35 +134,78 @@ value_T* valueStructSetField(value_T* value, const char* name, value_T* fieldVal
 		}
 	}
 	
-	size_t fieldIndex = value->structValue.fieldsSize;
+	size_t fieldIndex = value->constructValue.fieldsSize;
 	
-	value->structValue.fields = realloc(
-					value->structValue.fields, 
+	value->constructValue.fields = realloc(
+					value->constructValue.fields, 
 					(fieldIndex + 1) * sizeof(valueField_T)
 	);
 	
-	valueField_T* field = &value->structValue.fields[fieldIndex];
+	valueField_T* field = &value->constructValue.fields[fieldIndex];
 	
 	field->name = calloc(strlen(name) + 1, sizeof(char));
 	strcpy(field->name, name);
 	
 	field->value = fieldValue;
 	
-	value->structValue.fieldsSize += 1;
+	value->constructValue.fieldsSize += 1;
 	
 	return fieldValue;
 }
 
-value_T* valueStructGetField(value_T* value, const char* name) {
-	if (value->type != VALUE_STRUCT) {
+value_T* valueConstructGetField(value_T* value, const char* name) {
+	if (value->type != VALUE_CONSTRUCT) {
 		return (void*)0;
 	}
 	
-	for (size_t i = 0; i < value->structValue.fieldsSize; ++i) {
-		valueField_T* field = &value->structValue.fields[i];
+	for (size_t i = 0; i < value->constructValue.fieldsSize; ++i) {
+		valueField_T* field = &value->constructValue.fields[i];
 		
 		if (strcmp(field->name, name) == 0) {
 			return field->value;
+		}
+	}
+	
+	return (void*)0;
+}
+
+value_T* valueCopy(const value_T* value) {
+	if (value == (void*)0) {
+		return (void*)0;
+	}
+	
+	switch (value->type) {
+		case VALUE_NULL:
+			return valueInit(VALUE_NULL);
+
+		case VALUE_INT:
+			return valueInitInt(value->intValue);
+
+		case VALUE_FLOAT:
+			return valueInitFloat(value->floatValue);
+			
+		case VALUE_BOOLEAN:
+			return valueInitBoolean(value->booleanValue);
+
+		case VALUE_STRING:
+			return valueInitString(value->stringValue);
+
+		case VALUE_CONSTRUCT: {
+			value_T* copy = valueInitConstruct(
+				value->constructValue.name
+			);
+
+			for (size_t i = 0; i < value->constructValue.fieldsSize; ++i) {
+				valueField_T* field = &value->constructValue.fields[i];
+
+				valueConstructSetField(
+					copy,
+					field->name,
+					valueCopy(field->value)
+				);
+			}
+
+			return copy;
 		}
 	}
 	

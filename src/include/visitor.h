@@ -2,21 +2,36 @@
 #define VISITOR_H
 
 #include "ast.h"
+#include "value.h"
+#include <stdbool.h>
 
 typedef struct VISITOR_STRUCT {
-	
+	bool shouldReturn;
+	ast_T* currentMethod;
+	ast_T* currentConstruct;
 } visitor_T;
 
 visitor_T* visitorInit();
 void visitorFree(visitor_T* visitor);
 
-ast_T* visitorVisit(visitor_T* visitor, ast_T* node);
+value_T* visitorVisit(visitor_T* visitor, ast_T* node);
 
-ast_T* visitorVisitVariableDefinition(visitor_T* visitor, ast_T* node);
-ast_T* visitorVisitFunctionDefinition(visitor_T* visitor, ast_T* node);
-ast_T* visitorVisitVariable(visitor_T* visitor, ast_T* node);
-ast_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node);
-ast_T* visitorVisitString(visitor_T* visitor, ast_T* node);
-ast_T* visitorVisitCompound(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitVariableDefinition(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitFunctionDefinition(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitNamespaceDefinition(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitConstructInstantiation(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitVariable(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitString(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitNumber(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitBoolean(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitIfStatement(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitWhileLoop(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitForLoop(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitAssignment(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitCompound(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitUnaryOperation(visitor_T* visitor, ast_T* node);
+value_T* visitorVisitReturn(visitor_T* visitor, ast_T* node);
 
 #endif
