@@ -1,8 +1,9 @@
 #ifndef SCOPE_H
 #define SCOPE_H
 
-#include "ast.h"
 #include "value.h"
+
+typedef struct AST_STRUCT ast_T;
 
 typedef struct VARIABLE_STRUCT {
 	
@@ -12,6 +13,8 @@ typedef struct VARIABLE_STRUCT {
 }variable_T;
 
 typedef struct SCOPE_STRUCT {
+	
+	struct SCOPE_STRUCT* parent;
 	
 	// function defs
 	ast_T** functionDefinitions;
@@ -25,9 +28,14 @@ typedef struct SCOPE_STRUCT {
 	ast_T** constructDefinitions;
 	size_t constructDefinitionsSize;
 	
+	// namespace defs
+	ast_T** namespaceDefinitions;
+	size_t namespaceDefinitionsSize;
+	
 }scope_T;
 
 scope_T* scopeInit();
+scope_T* scopeInitChild(scope_T* parent);
 void scopeFree(scope_T* scope);
 
 ast_T* scopeAddFunctionDefinition(scope_T* scope, ast_T* funcDef);
@@ -43,5 +51,10 @@ void scopeRemoveVariableDefinitions(scope_T* scope, size_t count);
 
 ast_T* scopeAddConstructDefinition(scope_T* scope, ast_T* constructDef);
 ast_T* scopeGetConstructDefinition(scope_T* scope, const char* constructName);
+
+ast_T* scopeAddNamespaceDefinition(scope_T* scope, ast_T* namespaceDef);
+ast_T* scopeGetNamespaceDefinition(scope_T* scope, const char* namespaceName);
+
+ast_T* scopeGetQualifiedConstructDefinition(scope_T* scope, const char* qualifiedName);
 
 #endif

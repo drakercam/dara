@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #define NEW_LINE 10
 
@@ -40,7 +41,7 @@ void lexerSkipWhitespace(lexer_T* lexer) {
 
 token_T* lexerGetNextToken(lexer_T* lexer) {
 	while (lexer->c != '\0' && lexer->index < strlen(lexer->contents)) {
-		if (lexer->c == ' ' || lexer->c == NEW_LINE) {
+		if (isspace((unsigned char)lexer->c)) {
 			lexerSkipWhitespace(lexer);
 			continue;
 		}
@@ -89,6 +90,19 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_PLUS, lexerGetCurrCharAsStr(lexer)));
 				break;
 			case '-':
+				if (lexer->contents[lexer->index + 1] == '>') {
+					char* value = calloc(3, sizeof(char));
+					value[0] = '-';
+					value[1] = '>';
+
+					lexerAdvance(lexer);
+
+					return lexerAdvanceWithToken(
+						lexer,
+						tokenInit(TOKEN_ARROW, value)
+					);
+				}
+			
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_MINUS, lexerGetCurrCharAsStr(lexer)));
 				break;
 			case '*':
@@ -132,6 +146,16 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 				}
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_NOT, lexerGetCurrCharAsStr(lexer)));
 				break;
+				
+			case '.': {
+				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_DOT, lexerGetCurrCharAsStr(lexer)));
+				break;
+			}
+			
+			case ':': {
+				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_COLON, lexerGetCurrCharAsStr(lexer)));
+				break;
+			}
 			
 			default:
 				printf("Unknown character: '%c' (%d)\n", lexer->c, lexer->c);
@@ -166,14 +190,17 @@ token_T* lexerCollectString(lexer_T* lexer) {
 token_T* lexerCollectNumber(lexer_T* lexer) {
 	char* value = calloc(1, sizeof(char));
     value[0] = '\0';
+    
+    bool isFloat = false;
 
-    while (isdigit((unsigned char)lexer->c)) {
+    while (isdigit((unsigned char)lexer->c) || (lexer->c == '.' && !isFloat)) {
+        if (lexer->c == '.') {
+			isFloat = true;
+		}
+        
         char* s = lexerGetCurrCharAsStr(lexer);
 
-        value = realloc(
-            value,
-            (strlen(value) + strlen(s) + 1) * sizeof(char)
-        );
+        value = realloc(value,(strlen(value) + strlen(s) + 1) * sizeof(char));
 
         strcat(value, s);
         free(s);

@@ -1,4 +1,5 @@
-var name = "anakin rules";
-var other = "obi wan the best";
-print(name);
-print(other);
+for (int i = 0; i < 3; i = i + 1) {
+    print(i);
+};
+
+print(i);

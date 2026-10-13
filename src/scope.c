@@ -1,4 +1,5 @@
 #include "include/scope.h"
+#include "include/ast.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -15,7 +16,17 @@ scope_T* scopeInit() {
 	scope->constructDefinitions = (void*)0;
 	scope->constructDefinitionsSize = 0;
 	
+	scope->namespaceDefinitions = (void*)0;
+	scope->namespaceDefinitionsSize = 0;
+	
 	return scope;
+}
+
+scope_T* scopeInitChild(scope_T* parent) {
+	scope_T* scope = scopeInit();
+    scope->parent = parent;
+
+    return scope;
 }
 
 void scopeFree(scope_T* scope) {
@@ -24,6 +35,8 @@ void scopeFree(scope_T* scope) {
 	}
 	
 	free(scope->functionDefinitions);
+	free(scope->constructDefinitions);
+	free(scope->namespaceDefinitions);
 	
 	for (size_t i = 0; i < scope->variablesSize; ++i) {
 		variable_T* variable = scope->variables[i];
@@ -32,7 +45,7 @@ void scopeFree(scope_T* scope) {
 		valueFree(variable->value);
 		free(variable);
 	}
-
+	
 	free(scope->variables);
 	free(scope);
 }
@@ -89,15 +102,21 @@ variable_T* scopeAddVariable(scope_T* scope, const char* name, value_T* value) {
 }
 
 variable_T* scopeGetVariable(scope_T* scope, const char* name) {
-	for (size_t i = scope->variablesSize; i-- > 0;) {
-		variable_T* variable = scope->variables[i];
+    scope_T* currentScope = scope;
 
-		if (strcmp(variable->name, name) == 0) {
-			return variable;
-		}
-	}
+    while (currentScope != (void*)0) {
+        for (size_t i = currentScope->variablesSize; i-- > 0;) {
+            variable_T* variable = currentScope->variables[i];
 
-	return (void*)0;
+            if (strcmp(variable->name, name) == 0) {
+                return variable;
+            }
+        }
+
+        currentScope = currentScope->parent;
+    }
+
+    return NULL;
 }
 
 void scopeRemoveVariables(scope_T* scope, size_t count) {
@@ -165,3 +184,97 @@ ast_T* scopeGetConstructDefinition(scope_T* scope, const char* constructName) {
 	
 	return (void*)0;
 }
+
+ast_T* scopeAddNamespaceDefinition(scope_T* scope, ast_T* namespaceDef) {
+    ast_T** definitions = realloc(
+        scope->namespaceDefinitions,
+        (scope->namespaceDefinitionsSize + 1) * sizeof(ast_T*)
+    );
+
+    if (definitions == (void*)0) {
+        return NULL;
+    }
+
+    scope->namespaceDefinitions = definitions;
+
+    scope->namespaceDefinitions[scope->namespaceDefinitionsSize] =
+        namespaceDef;
+
+    scope->namespaceDefinitionsSize++;
+
+    return namespaceDef;
+}
+
+ast_T* scopeGetNamespaceDefinition(
+    scope_T* scope,
+    const char* namespaceName
+) {
+    for (size_t i = 0; i < scope->namespaceDefinitionsSize; ++i) {
+        ast_T* namespaceDef = scope->namespaceDefinitions[i];
+
+        if (strcmp(
+                namespaceDef->namespaceDefinitionName,
+                namespaceName
+            ) == 0) {
+            return namespaceDef;
+        }
+    }
+
+    return (void*)0;
+}
+
+
+ast_T* scopeGetQualifiedConstructDefinition( scope_T* scope, const char* qualifiedName) {
+    if (scope == (void*)0 || qualifiedName == (void*)0 ||
+        qualifiedName[0] == '\0') {
+        return (void*)0;
+    }
+
+    scope_T* currentScope = scope;
+    const char* name = qualifiedName;
+    const char* separator;
+
+    while ((separator = strchr(name, ':')) != (void*)0) {
+        size_t namespaceNameLength = separator - name;
+
+        // Reject empty namespace segments, e.g. std::array.
+        if (namespaceNameLength == 0) {
+            return (void*)0;
+        }
+
+        char* namespaceName = calloc(
+            namespaceNameLength + 1,
+            sizeof(char)
+        );
+
+        if (namespaceName == (void*)0) {
+            return (void*)0;
+        }
+
+        memcpy(namespaceName, name, namespaceNameLength);
+
+        ast_T* namespaceDefinition =
+            scopeGetNamespaceDefinition(currentScope, namespaceName);
+
+        free(namespaceName);
+
+        if (namespaceDefinition == (void*)0 ||
+            namespaceDefinition->namespaceDefinitionScope == (void*)0) {
+            return (void*)0;
+        }
+
+        // Continue searching inside this namespace's scope.
+        currentScope = namespaceDefinition->namespaceDefinitionScope;
+        name = separator + 1;
+
+        if (*name == '\0') {
+            return (void*)0;
+        }
+    }
+
+    // The final segment is the construct name.
+    return scopeGetConstructDefinition(currentScope, name);
+}
+
+
+

@@ -22,8 +22,11 @@ void valueFree(value_T* value)
         case VALUE_NULL:
 			break;
 			
-        case VALUE_NUMBER:
+        case VALUE_INT:
             break;
+            
+        case VALUE_FLOAT:
+			break;
 
         case VALUE_STRING:
             free(value->stringValue);
@@ -33,6 +36,8 @@ void valueFree(value_T* value)
 			break;
 
         case VALUE_CONSTRUCT:
+			free(value->constructValue.name);
+        
             for (size_t i = 0;
                  i < value->constructValue.fieldsSize;
                  ++i) {
@@ -51,10 +56,18 @@ void valueFree(value_T* value)
     free(value);
 }
 
-value_T* valueInitNumber(double number) {
-	value_T* value = valueInit(VALUE_NUMBER);
+value_T* valueInitInt(int number) {
+	value_T* value = valueInit(VALUE_INT);
 	
-	value->numberValue = number;
+	value->intValue = number;
+	
+	return value;
+}
+
+value_T* valueInitFloat(double number) {
+	value_T* value = valueInit(VALUE_FLOAT);
+	
+	value->floatValue = number;
 	
 	return value;
 }
@@ -76,13 +89,20 @@ value_T* valueInitBoolean(bool boolean) {
 	return value;
 }
 
-value_T* valueInitConstruct(void) {
-	value_T* value = valueInit(VALUE_CONSTRUCT);
-	
-	value->constructValue.fields = (void*)0;
-	value->constructValue.fieldsSize = 0;
-	
-	return value;
+value_T* valueInitConstruct(const char* name) {
+    value_T* value = valueInit(VALUE_CONSTRUCT);
+
+    value->constructValue.name = calloc(
+        strlen(name) + 1,
+        sizeof(char)
+    );
+
+    strcpy(value->constructValue.name, name);
+
+    value->constructValue.fields = (void*)0;
+    value->constructValue.fieldsSize = 0;
+
+    return value;
 }
 
 value_T* valueConstructSetField(value_T* value, const char* name, value_T* fieldValue) {
@@ -146,8 +166,11 @@ value_T* valueCopy(const value_T* value) {
 		case VALUE_NULL:
 			return valueInit(VALUE_NULL);
 
-		case VALUE_NUMBER:
-			return valueInitNumber(value->numberValue);
+		case VALUE_INT:
+			return valueInitInt(value->intValue);
+
+		case VALUE_FLOAT:
+			return valueInitFloat(value->floatValue);
 			
 		case VALUE_BOOLEAN:
 			return valueInitBoolean(value->booleanValue);
@@ -156,7 +179,9 @@ value_T* valueCopy(const value_T* value) {
 			return valueInitString(value->stringValue);
 
 		case VALUE_CONSTRUCT: {
-			value_T* copy = valueInitConstruct();
+			value_T* copy = valueInitConstruct(
+				value->constructValue.name
+			);
 
 			for (size_t i = 0; i < value->constructValue.fieldsSize; ++i) {
 				valueField_T* field = &value->constructValue.fields[i];
