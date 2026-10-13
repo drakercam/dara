@@ -308,5 +308,56 @@ ast_T* scopeGetQualifiedConstructDefinition( scope_T* scope, const char* qualifi
     return scopeGetConstructDefinition(currentScope, name);
 }
 
+ast_T* scopeGetQualifiedFunctionDefinition(scope_T* scope, const char* qualifiedName) {
+	if (scope == (void*)0 || qualifiedName == (void*)0 ||
+        qualifiedName[0] == '\0') {
+        return NULL;
+    }
 
+    scope_T* currentScope = scope;
+    const char* name = qualifiedName;
+    const char* separator;
 
+    while ((separator = strchr(name, ':')) != (void*)0) {
+        size_t namespaceNameLength = separator - name;
+
+        if (namespaceNameLength == 0) {
+            return (void*)0;
+        }
+
+        char* namespaceName = calloc(
+            namespaceNameLength + 1,
+            sizeof(char)
+        );
+
+        if (namespaceName == (void*)0) {
+            return (void*)0;
+        }
+
+        memcpy(namespaceName, name, namespaceNameLength);
+
+        ast_T* namespaceDefinition =
+            scopeGetNamespaceDefinition(
+                currentScope,
+                namespaceName
+            );
+
+        free(namespaceName);
+
+        if (namespaceDefinition == (void*)0 ||
+            namespaceDefinition->namespaceDefinitionScope == (void*)0) {
+            return (void*)0;
+        }
+
+        currentScope =
+            namespaceDefinition->namespaceDefinitionScope;
+
+        name = separator + 1;
+
+        if (*name == '\0') {
+            return (void*)0;
+        }
+    }
+
+    return scopeGetFunctionDefinition(currentScope, name);
+}

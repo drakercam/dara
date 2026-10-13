@@ -5,6 +5,8 @@
 #include <string.h>
 #include <stdbool.h>
 
+static ast_T* parserParseFunctionCallNamed(parser_T* parser, scope_T* scope, const char* functionName);
+
 static bool parserIsConstructType(scope_T* scope, const char* name) {
     //~ printf("Checking type: %s (known constructs: %zu)\n",
         //~ name, scope->constructDefinitionsSize);
@@ -83,6 +85,63 @@ static char* parserParseQualifiedConstructName(parser_T* parser, scope_T* scope)
     return name;
 }
 
+
+static char* parserParseQualifiedFunctionName(parser_T* parser) {
+    if (parser->currentToken->type != TOKEN_ID) {
+        printf("Expected function name\n");
+        exit(EXIT_FAILURE);
+    }
+
+    size_t nameLength = strlen(parser->currentToken->value);
+    char* name = calloc(nameLength + 1, sizeof(char));
+
+    if (name == (void*)0) {
+        printf("Failed to allocate function name\n");
+        exit(EXIT_FAILURE);
+    }
+
+    strcpy(name, parser->currentToken->value);
+    parserEat(parser, TOKEN_ID);
+
+    while (parser->currentToken->type == TOKEN_COLON) {
+        parserEat(parser, TOKEN_COLON);
+
+        if (parser->currentToken->type != TOKEN_ID) {
+            printf("Expected name after ':'\n");
+            free(name);
+            exit(EXIT_FAILURE);
+        }
+
+        const char* segment = parser->currentToken->value;
+        size_t segmentLength = strlen(segment);
+
+        char* expandedName = realloc(
+            name,
+            nameLength + segmentLength + 2
+        );
+
+        if (expandedName == (void*)0) {
+            printf("Failed to allocate qualified function name\n");
+            free(name);
+            exit(EXIT_FAILURE);
+        }
+
+        name = expandedName;
+        name[nameLength] = ':';
+
+        memcpy(
+            name + nameLength + 1,
+            segment,
+            segmentLength + 1
+        );
+
+        nameLength += segmentLength + 1;
+
+        parserEat(parser, TOKEN_ID);
+    }
+
+    return name;
+}
 
 static bool parserLooksLikeTypedDeclaration(parser_T* parser) {
     lexer_T lookahead = *parser->lexer;
@@ -472,10 +531,30 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 			tokenFree(nextToken);
 
 			if (isQualifiedName) {
-				char* constructName =
-					parserParseQualifiedConstructName(parser, scope);
+				char* qualifiedName =
+					parserParseQualifiedFunctionName(parser);
 
-				// Qualified construct names must be followed by a method.
+				// A qualified name followed by '(' is a function call.
+				if (parser->currentToken->type == TOKEN_LEFTPAREN) {
+					ast_T* functionCall = parserParseFunctionCallNamed(
+						parser,
+						scope,
+						qualifiedName
+					);
+
+					free(qualifiedName);
+					return functionCall;
+				}
+
+				// Otherwise, preserve qualified construct method calls.
+				if (scopeGetQualifiedConstructDefinition(scope, qualifiedName) == (void*)0) {
+					printf("Unknown construct '%s'\n", qualifiedName);
+					free(qualifiedName);
+					exit(EXIT_FAILURE);
+				}
+
+				char* constructName = qualifiedName;
+
 				parserEat(parser, TOKEN_DOT);
 
 				if (parser->currentToken->type != TOKEN_ID) {
@@ -485,7 +564,6 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 				}
 
 				ast_T* methodCall = astInit(AST_METHOD_CALL);
-
 				methodCall->methodCallConstructName = constructName;
 
 				methodCall->methodCallName = calloc(
@@ -493,7 +571,7 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 					sizeof(char)
 				);
 
-				if (methodCall->methodCallName == NULL) {
+				if (methodCall->methodCallName == (void*)0) {
 					printf("Failed to allocate method name\n");
 					astFree(methodCall);
 					exit(EXIT_FAILURE);
@@ -509,7 +587,6 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 
 				methodCall->scope = scope;
 
-				// Parse arguments, just as we do for ordinary method calls.
 				if (parser->currentToken->type != TOKEN_RIGHTPAREN) {
 					while (1) {
 						ast_T* argument =
@@ -523,7 +600,7 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 							newSize * sizeof(ast_T*)
 						);
 
-						if (newArguments == NULL) {
+						if (newArguments == (void*)0) {
 							printf("Failed to allocate method arguments\n");
 							astFree(argument);
 							astFree(methodCall);
@@ -531,10 +608,7 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 						}
 
 						methodCall->methodCallArguments = newArguments;
-
-						methodCall->methodCallArguments[newSize - 1] =
-							argument;
-
+						methodCall->methodCallArguments[newSize - 1] = argument;
 						methodCall->methodCallArgumentsSize = newSize;
 
 						if (parser->currentToken->type != TOKEN_COMMA) {
@@ -546,9 +620,9 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 				}
 
 				parserEat(parser, TOKEN_RIGHTPAREN);
-
 				return methodCall;
 			}
+
 			
             ast_T* object;
 
@@ -611,7 +685,7 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
                         sizeof(char)
                     );
 
-                    if (methodCall->methodCallConstructName == NULL) {
+                    if (methodCall->methodCallConstructName == (void*)0) {
                         printf("Failed to allocate construct name\n");
                         free(fieldName);
                         astFree(object);
@@ -724,37 +798,68 @@ ast_T* parserParseTerm(parser_T* parser, scope_T* scope) {
 	return left;
 }
 
+
+static ast_T* parserParseFunctionCallNamed(parser_T* parser, scope_T* scope, const char* functionName) {
+    ast_T* functionCall = astInit(AST_FUNCTION_CALL);
+
+    functionCall->functionCallName = calloc(
+        strlen(functionName) + 1,
+        sizeof(char)
+    );
+
+    if (functionCall->functionCallName == (void*)0) {
+        printf("Failed to allocate function call name\n");
+        astFree(functionCall);
+        exit(EXIT_FAILURE);
+    }
+
+    strcpy(functionCall->functionCallName, functionName);
+
+    parserEat(parser, TOKEN_LEFTPAREN);
+
+    if (parser->currentToken->type != TOKEN_RIGHTPAREN) {
+        while (1) {
+            ast_T* argument = parserParseComparison(parser, scope);
+
+            size_t newSize =
+                functionCall->functionCallArgumentsSize + 1;
+
+            ast_T** newArguments = realloc(
+                functionCall->functionCallArguments,
+                newSize * sizeof(ast_T*)
+            );
+
+            if (newArguments == (void*)0) {
+                printf("Failed to allocate function arguments\n");
+                astFree(argument);
+                astFree(functionCall);
+                exit(EXIT_FAILURE);
+            }
+
+            functionCall->functionCallArguments = newArguments;
+            functionCall->functionCallArguments[newSize - 1] = argument;
+            functionCall->functionCallArgumentsSize = newSize;
+
+            if (parser->currentToken->type != TOKEN_COMMA) {
+                break;
+            }
+
+            parserEat(parser, TOKEN_COMMA);
+        }
+    }
+
+    parserEat(parser, TOKEN_RIGHTPAREN);
+    functionCall->scope = scope;
+
+    return functionCall;
+}
+
 ast_T* parserParseFunctionCall(parser_T* parser, scope_T* scope) {
-	//printf("func name: %s\n", parser->previousToken->value);
-	ast_T* functionCall = astInit(AST_FUNCTION_CALL);
-	
-	functionCall->functionCallName = calloc(strlen(parser->previousToken->value) + 1, sizeof(char));
-	strcpy(functionCall->functionCallName, parser->previousToken->value);
-	
-	parserEat(parser, TOKEN_LEFTPAREN);
-	functionCall->functionCallArguments = calloc(1, sizeof(ast_T*));
-	
-	if (parser->currentToken->type != TOKEN_RIGHTPAREN) {
-		ast_T* astExpression = parserParseComparison(parser, scope);
-		functionCall->functionCallArguments[0] = astExpression;
-		functionCall->functionCallArgumentsSize += 1;
-		
-		while (parser->currentToken->type == TOKEN_COMMA) {
-			parserEat(parser, TOKEN_COMMA);
-			
-			ast_T* astExpression = parserParseComparison(parser, scope);
-			functionCall->functionCallArgumentsSize += 1;
-			functionCall->functionCallArguments = realloc(functionCall->functionCallArguments, 
-											  functionCall->functionCallArgumentsSize * sizeof(ast_T*));
-			functionCall->functionCallArguments[functionCall->functionCallArgumentsSize-1] = astExpression;
-		}
-	}
-	
-	parserEat(parser, TOKEN_RIGHTPAREN);
-	
-	functionCall->scope = scope;
-	
-	return functionCall;
+    return parserParseFunctionCallNamed(
+        parser,
+        scope,
+        parser->previousToken->value
+    );
 }
 
 ast_T* parserParseVariable(parser_T* parser, scope_T* scope) {
