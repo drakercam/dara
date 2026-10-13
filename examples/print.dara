@@ -1,29 +1,21 @@
-namespace std {
-	construct io {
-		func print(auto value) -> noval {
-			print(value);
-		};
-	};
-	
-	construct math {
-		func addInt(int v1, int v2) -> int {
-			return v1 + v2;
-		};
-		
-		func addFloat(float f1, float f2) -> float {
-			return f1 + f2;
-		};
-	};
-	
-	construct string {
-		func concat(string& x, string y) -> noval {
-			print("TO IMPLEMENT");
+namespace io {
+    namespace debug {
+        func print() -> noval {
+            print("debug");
+        };
+    };
+};
+
+io:debug:print();
+
+namespace hello {
+	namespace world {
+		namespace brotha {
+			func print() -> noval {
+				print("LOL");
+			};
 		};
 	};
 };
 
-std:io.print("Hello World!");
-std:io.print(std:math.addInt(40, 40));
-std:io.print(std:math.addFloat(30.0, 30.0));
-string s = "hello";
-std:string.concat(s, "world");
+hello:world:brotha:print();

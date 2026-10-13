@@ -341,6 +341,9 @@ value_T* visitorVisitNamespaceDefinition(visitor_T* visitor, ast_T* node) {
 		if (statement->type == AST_FUNCTION_DEFINITION) {
 			visitorVisitFunctionDefinition(visitor, statement);
 		}
+		else if (statement->type == AST_NAMESPACE_DEFINITION) {
+			visitorVisitNamespaceDefinition(visitor, statement);
+		}
 	}
 	
 	return (void*)0;
@@ -597,10 +600,20 @@ value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node) {
 		return builtinFunctionAdd(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
 	}
 	
-	ast_T* funcDef = scopeGetFunctionDefinition(
-		node->scope,
-		node->functionCallName
-	);
+	ast_T* funcDef;
+
+	if (strchr(node->functionCallName, ':') != (void*)0) {
+		funcDef = scopeGetQualifiedFunctionDefinition(
+			node->scope,
+			node->functionCallName
+		);
+	}
+	else {
+		funcDef = scopeGetFunctionDefinition(
+			node->scope,
+			node->functionCallName
+		);
+	}
 
 	if (funcDef == (void*)0) {
 		printf("Undefined function '%s'\n", node->functionCallName);

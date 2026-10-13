@@ -58,5 +58,6 @@ ast_T* scopeAddNamespaceDefinition(scope_T* scope, ast_T* namespaceDef);
 ast_T* scopeGetNamespaceDefinition(scope_T* scope, const char* namespaceName);
 
 ast_T* scopeGetQualifiedConstructDefinition(scope_T* scope, const char* qualifiedName);
+ast_T* scopeGetQualifiedFunctionDefinition(scope_T* scope, const char* qualifiedName);
 
 #endif
