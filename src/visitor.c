@@ -8,6 +8,11 @@
 #include <string.h>
 #include <stdbool.h>
 
+static value_T* visitorGetAssignmentTargetValue(
+    visitor_T* visitor,
+    ast_T* target
+);
+
 static value_T* visitorVisitMethodCall(
     visitor_T* visitor,
     ast_T* node
@@ -127,7 +132,6 @@ static value_T* builtinFunctionDivide(visitor_T* visitor, ast_T** args, int args
 
 visitor_T* visitorInit() {
 	visitor_T* visitor = calloc(1, sizeof(visitor_T));
-	
 	return visitor;
 }
 
@@ -614,41 +618,74 @@ value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node) {
 		exit(1);
 	}
 	
-	// going through the function call arguments and adding the arguments to the functionbody's scope
-	for (size_t i = 0; i < funcDef->functionDefinitionArgsSize; ++i) {
+	
+	for (size_t i = 0; i < funcDef->functionDefinitionArgsSize; i++) {
 		ast_T* parameter = funcDef->functionDefinitionArgs[i];
+		ast_T* argumentNode = node->functionCallArguments[i];
 
-		value_T* argument = visitorVisit(
-			visitor,
-			node->functionCallArguments[i]
-		);
-		
-		if (argument == (void*)0) {
-			printf(
-				"Failed to evaluate argument %zu for function '%s'\n",
-				i + 1,
-				node->functionCallName
+		bool isReference = parameter->variableDefinitionIsReference;
+		value_T* argument;
+
+		if (isReference) {
+			if (argumentNode->type != AST_VARIABLE &&
+				argumentNode->type != AST_MEMBER_ACCESS) {
+				printf(
+					"Reference parameter '%s' requires a variable or field argument\n",
+					parameter->variableDefinitionVariableName
+				);
+				exit(1);
+			}
+
+			argument = visitorGetAssignmentTargetValue(
+				visitor,
+				argumentNode
 			);
+		} else {
+			argument = visitorVisit(visitor, argumentNode);
+		}
+
+		if (argument == (void*)0) {
+			printf("Failed to evaluate function argument\n");
 			exit(1);
 		}
 
 		if (!visitorArgumentMatchesType(parameter, argument)) {
 			printf(
-				"Type error: parameter '%s' of function '%s' expects '%s'\n",
-				parameter->variableDefinitionVariableName,
-				node->functionCallName,
-				parameter->variableDefinitionType
+				"Argument type mismatch for parameter '%s'\n",
+				parameter->variableDefinitionVariableName
 			);
 
-			valueFree(argument);
+			if (!isReference) {
+				valueFree(argument);
+			}
+
 			exit(1);
 		}
 
-		scopeAddVariable(
-			funcDef->functionDefinitionBody->scope,
-			parameter->variableDefinitionVariableName,
-			argument
-		);
+		variable_T* binding;
+
+		if (isReference) {
+			binding = scopeAddReferenceVariable(
+				funcDef->functionDefinitionBody->scope,
+				parameter->variableDefinitionVariableName,
+				argument
+			);
+		} else {
+			binding = scopeAddVariable(
+				funcDef->functionDefinitionBody->scope,
+				parameter->variableDefinitionVariableName,
+				argument
+			);
+		}
+
+		if (binding == (void*)0) {
+			if (!isReference) {
+				valueFree(argument);
+			}
+
+			printf("Failed to bind function parameter\n");
+			exit(1);
+		}
 	}
 
 	visitor->shouldReturn = false;
@@ -763,9 +800,7 @@ static value_T* visitorVisitMethodCall(visitor_T* visitor, ast_T* node) {
     }
 
     // 3. Check the number of arguments.
-    if (method->functionDefinitionArgsSize !=
-        node->methodCallArgumentsSize) {
-
+    if (method->functionDefinitionArgsSize != node->methodCallArgumentsSize) {
         printf(
             "Method '%s.%s' expects %zu argument(s), but received %zu\n",
             node->methodCallConstructName,
@@ -777,46 +812,80 @@ static value_T* visitorVisitMethodCall(visitor_T* visitor, ast_T* node) {
     }
 
     // 4. Evaluate arguments and bind them to parameters.
-    for (size_t i = 0;
-         i < method->functionDefinitionArgsSize;
-         ++i) {
+	for (size_t i = 0; i < method->functionDefinitionArgsSize; i++) {
+		ast_T* parameter = method->functionDefinitionArgs[i];
+		ast_T* argumentNode = node->methodCallArguments[i];
 
-        ast_T* parameter = method->functionDefinitionArgs[i];
+		bool isReference = parameter->variableDefinitionIsReference;
+		value_T* argument;
 
-        value_T* argument = visitorVisit(
-            visitor,
-            node->methodCallArguments[i]
-        );
+		if (isReference) {
+			if (argumentNode->type != AST_VARIABLE &&
+				argumentNode->type != AST_MEMBER_ACCESS) {
+				printf(
+					"Reference parameter '%s' requires a variable or field argument\n",
+					parameter->variableDefinitionVariableName
+				);
+				exit(1);
+			}
 
-        if (argument == (void*)0) {
-            printf(
-                "Failed to evaluate argument %zu for method '%s.%s'\n",
-                i + 1,
-                node->methodCallConstructName,
-                node->methodCallName
-            );
-            exit(1);
-        }
-        
-        if (!visitorArgumentMatchesType(parameter, argument)) {
-			printf(
-				"Type error: parameter '%s' of method '%s.%s' expects '%s'\n",
-				parameter->variableDefinitionVariableName,
-				node->methodCallConstructName,
-				node->methodCallName,
-				parameter->variableDefinitionType
+			argument = visitorGetAssignmentTargetValue(
+				visitor,
+				argumentNode
 			);
+		} else {
+			argument = visitorVisit(visitor, argumentNode);
+		}
 
-			valueFree(argument);
+		if (argument == (void*)0) {
+			printf("Failed to evaluate method argument\n");
 			exit(1);
 		}
 
-        scopeAddVariable(
-            method->functionDefinitionBody->scope,
-            parameter->variableDefinitionVariableName,
-            argument
-        );
-    }
+		if (!visitorArgumentMatchesType(parameter, argument)) {
+			printf(
+				"Argument type mismatch for parameter '%s'\n",
+				parameter->variableDefinitionVariableName
+			);
+
+			if (!isReference) {
+				valueFree(argument);
+			}
+
+			exit(1);
+		}
+
+		variable_T* binding;
+
+		if (isReference) {
+			binding = scopeAddReferenceVariable(
+				method->functionDefinitionBody->scope,
+				parameter->variableDefinitionVariableName,
+				argument
+			);
+		} else {
+			binding = scopeAddVariable(
+				method->functionDefinitionBody->scope,
+				parameter->variableDefinitionVariableName,
+				argument
+			);
+		}
+
+		if (binding == (void*)0) {
+			if (!isReference) {
+				valueFree(argument);
+			}
+
+			printf("Failed to bind method parameter\n");
+			exit(1);
+		}
+	}
+    
+	ast_T* previousMethod = visitor->currentMethod;
+	ast_T* previousConstruct = visitor->currentConstruct;
+
+	visitor->currentMethod = method;
+	visitor->currentConstruct = construct;
 
     // 5. Execute the method body.
     visitor->shouldReturn = false;
@@ -834,6 +903,9 @@ static value_T* visitorVisitMethodCall(visitor_T* visitor, ast_T* node) {
         valueFree(result);
         result = valueInit(VALUE_NULL);
     }
+    
+    visitor->currentMethod = previousMethod;
+	visitor->currentConstruct = previousConstruct;
 
     // 6. Enforce the declared return type.
     char* returnType = method->functionDefinitionReturnType;
@@ -1117,17 +1189,21 @@ value_T* visitorVisitAssignment(visitor_T* visitor, ast_T* node) {
         valueFree(newValue);
         exit(1);
     }
+	if (target->type == AST_VARIABLE) {
+		variable_T* variable = scopeGetVariable(
+			target->scope,
+			target->variableName
+		);
 
-    if (target->type == AST_VARIABLE) {
-        variable_T* variable = scopeGetVariable(
-            target->scope,
-            target->variableName
-        );
-
-        // Transfer ownership of the new value to the variable.
-        valueFree(variable->value);
-        variable->value = newValue;
-    }
+		if (variable->ownsValue) {
+			// Ordinary variable: replace its owned value.
+			valueFree(variable->value);
+			variable->value = newValue;
+		} else {
+			// Reference parameter: preserve the referenced address.
+			valueReplace(variable->value, newValue);
+		}
+	}
     else {
         // Resolve the containing object in memory.
         value_T* object = visitorGetAssignmentTargetValue(

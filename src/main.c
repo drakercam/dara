@@ -25,8 +25,8 @@ int main(int argc, char* argv[]) {
 	ast_T* root = parserParse(parser, parser->scope);
 	visitor_T* visitor = visitorInit();
 
-	visitorVisit(visitor, root);
-
+	value_T* result = visitorVisit(visitor, root);
+	valueFree(result);
 	visitorFree(visitor);
 	astFree(root);
 	parserFree(parser);

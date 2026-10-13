@@ -42,7 +42,9 @@ void scopeFree(scope_T* scope) {
 		variable_T* variable = scope->variables[i];
 
 		free(variable->name);
-		valueFree(variable->value);
+		if (variable->ownsValue) {
+			valueFree(variable->value);
+		}
 		free(variable);
 	}
 	
@@ -80,25 +82,53 @@ ast_T* scopeGetFunctionDefinition(scope_T* scope, const char* funcName) {
 	return (void*)0;
 }
 
+static variable_T* scopeAddVariableWithOwnership(scope_T* scope, const char* name, value_T* value, bool ownsValue) {
+    variable_T* var = calloc(1, sizeof(variable_T));
+
+    if (var == (void*)0) {
+        return (void*)0;
+    }
+
+    var->name = calloc(strlen(name) + 1, sizeof(char));
+
+    if (var->name == (void*)0) {
+        free(var);
+        return (void*)0;
+    }
+
+    strcpy(var->name, name);
+
+    var->value = value;
+    var->ownsValue = ownsValue;
+
+    variable_T** variables = realloc(
+        scope->variables,
+        (scope->variablesSize + 1) * sizeof(variable_T*)
+    );
+
+    if (variables == (void*)0) {
+        free(var->name);
+        free(var);
+        return (void*)0;
+    }
+
+    scope->variables = variables;
+    scope->variables[scope->variablesSize] = var;
+    scope->variablesSize++;
+
+    return var;
+}
+
 variable_T* scopeAddVariable(scope_T* scope, const char* name, value_T* value) {
-	variable_T* var = calloc(1, sizeof(variable_T));
-	
-	var->name = calloc(strlen(name) + 1, sizeof(char));
-	strcpy(var->name, name);
-	
-	var->value = value;
-	
-	scope->variablesSize += 1;
-	
-	scope->variables =
-		realloc(
-			scope->variables,
-			scope->variablesSize * sizeof(variable_T*)
-		);
+    return scopeAddVariableWithOwnership(
+        scope, name, value, true
+    );
+}
 
-	scope->variables[scope->variablesSize - 1] = var;
-
-	return var;
+variable_T* scopeAddReferenceVariable(scope_T* scope, const char* name, value_T* value) {
+    return scopeAddVariableWithOwnership(
+        scope, name, value, false
+    );
 }
 
 variable_T* scopeGetVariable(scope_T* scope, const char* name) {
@@ -116,7 +146,7 @@ variable_T* scopeGetVariable(scope_T* scope, const char* name) {
         currentScope = currentScope->parent;
     }
 
-    return NULL;
+    return (void*)0;
 }
 
 void scopeRemoveVariables(scope_T* scope, size_t count) {
@@ -135,7 +165,9 @@ void scopeRemoveVariables(scope_T* scope, size_t count) {
 		variable_T* variable = scope->variables[index];
 
 		free(variable->name);
-		valueFree(variable->value);
+		if (variable->ownsValue) {
+			valueFree(variable->value);
+		}
 		free(variable);
 
 		scope->variablesSize -= 1;

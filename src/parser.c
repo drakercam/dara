@@ -853,91 +853,113 @@ ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope) {
 	
 	parserEat(parser, TOKEN_LEFTPAREN);
 
-	// Parse function parameters.
-	if (parser->currentToken->type != TOKEN_RIGHTPAREN) {
-		while (1) {
-			if (parser->currentToken->type != TOKEN_ID) {
-				printf("Expected parameter type or name\n");
-				astFree(ast);
-				exit(1);
-			}
 
-			// The first identifier may be a type or an untyped parameter name.
-			char* firstName = parser->currentToken->value;
+    // Parse function parameters.
+    if (parser->currentToken->type != TOKEN_RIGHTPAREN) {
+        while (1) {
+            if (parser->currentToken->type != TOKEN_ID) {
+                printf("Expected parameter type\n");
+                astFree(ast);
+                exit(EXIT_FAILURE);
+            }
 
-			char* parameterType = (void*)0;
-			char* parameterName = (void*)0;
+            char* parameterType = (void*)0;
+            char* parameterName = (void*)0;
+            bool isReference = false;
 
-			parserEat(parser, TOKEN_ID);
+            char* firstName = parser->currentToken->value;
 
-			if (parser->currentToken->type == TOKEN_ID) {
-				// Typed parameter: int amount, Human h, etc.
-				parameterType = calloc(
-					strlen(firstName) + 1,
-					sizeof(char)
-				);
-				strcpy(parameterType, firstName);
+            // Built-in and generic parameter types.
+            if (
+                strcmp(firstName, "int") == 0 ||
+                strcmp(firstName, "float") == 0 ||
+                strcmp(firstName, "string") == 0 ||
+                strcmp(firstName, "auto") == 0 ||
+                strcmp(firstName, "var") == 0
+            ) {
+                const char* typeName =
+                    strcmp(firstName, "var") == 0 ? "auto" : firstName;
 
-				parameterName = calloc(
-					strlen(parser->currentToken->value) + 1,
-					sizeof(char)
-				);
-				strcpy(parameterName, parser->currentToken->value);
+                parameterType = calloc(strlen(typeName) + 1, sizeof(char));
 
-				parserEat(parser, TOKEN_ID);
-			}
-			else {
-				// Preserve compatibility with existing untyped parameters.
-				parameterType = calloc(5, sizeof(char));
-				strcpy(parameterType, "auto");
+                if (parameterType != (void*)0) {
+                    strcpy(parameterType, typeName);
+                }
 
-				parameterName = calloc(
-					strlen(firstName) + 1,
-					sizeof(char)
-				);
-				strcpy(parameterName, firstName);
-			}
+                parserEat(parser, TOKEN_ID);
+            }
+            else {
+                // Construct types, including qualified names.
+                parameterType = parserParseQualifiedConstructName(parser, scope);
+            }
 
-			if (parameterType == (void*)0 || parameterName == (void*)0) {
-				printf("Failed to allocate function parameter\n");
-				free(parameterType);
-				free(parameterName);
-				astFree(ast);
-				exit(EXIT_FAILURE);
-			}
+            if (parameterType == (void*)0) {
+                printf("Failed to allocate function parameter type\n");
+                astFree(ast);
+                exit(EXIT_FAILURE);
+            }
 
-			ast_T* parameter = astInit(AST_VARIABLE_DEFINITION);
-			parameter->variableDefinitionType = parameterType;
-			parameter->variableDefinitionVariableName = parameterName;
-			parameter->variableDefinitionValue = (void*)0;
-			parameter->scope = scope;
+            // An ampersand marks an explicit reference parameter.
+            if (parser->currentToken->type == TOKEN_AMPERSAND) {
+                isReference = true;
+                parserEat(parser, TOKEN_AMPERSAND);
+            }
 
-			size_t newSize = ast->functionDefinitionArgsSize + 1;
+            // Every parameter must have a type followed by a name.
+            if (parser->currentToken->type != TOKEN_ID) {
+                printf("Expected parameter name after type\n");
+                free(parameterType);
+                astFree(ast);
+                exit(EXIT_FAILURE);
+            }
 
-			ast_T** newArgs = realloc(
-				ast->functionDefinitionArgs,
-				newSize * sizeof(ast_T*)
-			);
+            parameterName = calloc(
+                strlen(parser->currentToken->value) + 1,
+                sizeof(char)
+            );
 
-			if (newArgs == (void*)0) {
-				printf("Failed to allocate function parameters\n");
-				astFree(parameter);
-				astFree(ast);
-				exit(EXIT_FAILURE);
-			}
+            if (parameterName == (void*)0) {
+                printf("Failed to allocate function parameter name\n");
+                free(parameterType);
+                astFree(ast);
+                exit(EXIT_FAILURE);
+            }
 
-			ast->functionDefinitionArgs = newArgs;
-			ast->functionDefinitionArgs[newSize - 1] = parameter;
-			ast->functionDefinitionArgsSize = newSize;
+            strcpy(parameterName, parser->currentToken->value);
+            parserEat(parser, TOKEN_ID);
 
-			if (parser->currentToken->type != TOKEN_COMMA) {
-				break;
-			}
+            ast_T* parameter = astInit(AST_VARIABLE_DEFINITION);
+            parameter->variableDefinitionType = parameterType;
+            parameter->variableDefinitionVariableName = parameterName;
+            parameter->variableDefinitionValue = (void*)0;
+            parameter->variableDefinitionIsReference = isReference;
+            parameter->scope = scope;
 
-			parserEat(parser, TOKEN_COMMA);
-		}
-	}
+            size_t newSize = ast->functionDefinitionArgsSize + 1;
 
+            ast_T** newArgs = realloc(
+                ast->functionDefinitionArgs,
+                newSize * sizeof(ast_T*)
+            );
+
+            if (newArgs == (void*)0) {
+                printf("Failed to allocate function parameters\n");
+                astFree(parameter);
+                astFree(ast);
+                exit(EXIT_FAILURE);
+            }
+
+            ast->functionDefinitionArgs = newArgs;
+            ast->functionDefinitionArgs[newSize - 1] = parameter;
+            ast->functionDefinitionArgsSize = newSize;
+
+            if (parser->currentToken->type != TOKEN_COMMA) {
+                break;
+            }
+
+            parserEat(parser, TOKEN_COMMA);
+        }
+    }
 	
 	parserEat(parser, TOKEN_RIGHTPAREN);
 

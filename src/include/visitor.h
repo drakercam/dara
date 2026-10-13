@@ -7,6 +7,8 @@
 
 typedef struct VISITOR_STRUCT {
 	bool shouldReturn;
+	ast_T* currentMethod;
+	ast_T* currentConstruct;
 } visitor_T;
 
 visitor_T* visitorInit();

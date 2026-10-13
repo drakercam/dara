@@ -11,37 +11,25 @@ value_T* valueInit(int type) {
 	return value;
 }
 
-void valueFree(value_T* value)
-{
-    if (value == NULL) {
-        return;
-    }
 
+static void valueFreeContents(value_T* value) {
     switch (value->type) {
-
         case VALUE_NULL:
-			break;
-			
         case VALUE_INT:
-            break;
-            
         case VALUE_FLOAT:
-			break;
+        case VALUE_BOOLEAN:
+            break;
 
         case VALUE_STRING:
             free(value->stringValue);
             break;
-            
-        case VALUE_BOOLEAN:
-			break;
 
         case VALUE_CONSTRUCT:
-			free(value->constructValue.name);
-        
+            free(value->constructValue.name);
+
             for (size_t i = 0;
                  i < value->constructValue.fieldsSize;
                  ++i) {
-
                 valueField_T* field =
                     &value->constructValue.fields[i];
 
@@ -52,8 +40,32 @@ void valueFree(value_T* value)
             free(value->constructValue.fields);
             break;
     }
+}
 
+void valueFree(value_T* value) {
+    if (value == (void*)0) {
+        return;
+    }
+
+    valueFreeContents(value);
     free(value);
+}
+
+void valueReplace(value_T* destination, value_T* source) {
+    if (destination == (void*)0 || source == (void*)0 ||
+        destination == source) {
+        return;
+    }
+
+    // Release the destination's old contents, not its allocation.
+    valueFreeContents(destination);
+
+    // Transfer the source's contents into the existing destination.
+    memcpy(destination, source, sizeof(value_T));
+
+    // The destination now owns the transferred contents.
+    // Free only the source's outer allocation.
+    free(source);
 }
 
 value_T* valueInitInt(int number) {

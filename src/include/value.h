@@ -52,5 +52,6 @@ value_T* valueConstructSetField(value_T* value, const char* name, value_T* field
 value_T* valueConstructGetField(value_T* value, const char* name);
 
 value_T* valueCopy(const value_T* value);
+void valueReplace(value_T* destination, value_T* source);
 
 #endif

@@ -157,6 +157,11 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 				break;
 			}
 			
+			case '&': {
+				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_AMPERSAND, lexerGetCurrCharAsStr(lexer)));
+				break;
+			}
+			
 			default:
 				printf("Unknown character: '%c' (%d)\n", lexer->c, lexer->c);
 				lexerAdvance(lexer);

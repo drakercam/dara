@@ -28,6 +28,7 @@ typedef struct TOKEN_STRUCT {
 		TOKEN_COMMA,
 		TOKEN_COLON,
 		TOKEN_DOT,
+		TOKEN_AMPERSAND,
 		TOKEN_EOF
 	} type;
 	
