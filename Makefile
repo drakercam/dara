@@ -1,20 +1,24 @@
 EXEC = dara.out
 CC = gcc
+
 SRCS = $(wildcard src/*.c)
 OBJS = $(SRCS:.c=.o)
+
 FLAGS = -g
+CPPFLAGS = -Iinclude
+
+.PHONY: all install clean
+
+all: $(EXEC)
 
 $(EXEC): $(OBJS)
-	$(CC) $(OBJS) $(FLAGS) -o $(EXEC)
+	$(CC) $(OBJS) $(FLAGS) -o $@
 
-%.o: %.c include/%.h
-	$(CC) -c $(FLAGS) $< -o $@
+src/%.o: src/%.c
+	$(CC) $(CPPFLAGS) $(FLAGS) -c $< -o $@
 
-install:
-	make
+install: $(EXEC)
 	cp ./$(EXEC) /usr/local/bin/dara
 
 clean:
-	-rm *.out
-	-rm *.o
-	-rm src/*.o
+	rm -f $(EXEC) $(OBJS)

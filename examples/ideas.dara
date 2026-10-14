@@ -1,23 +1,16 @@
-// some ideas for how I want variables and functions to look
-let x = 4;
-let x{int 4};
-let x = int 4;
-var x = vec3 {0.1f, 0.1f, 0.1f};
-var x{vec3{0.1f, 0.1, 0.1f}};
-var x = {0.1f, 0.1f, 0.1f};
+int x = 0;
 
-func returnNothing() -> void {
-	
-}
+while (x < 3) {
+    print(x);
+    x = x + 1;
+};
 
-func returnString() -> string {
-	
-}
+if (x == 3) {
+    print("if works");
+} else {
+    print("if failed");
+};
 
-func returnInt() -> int {
-	
-}
-
-func returnVec3() -> vec3 {
-	
-}
+for (int i = 0; i < 3; i = i + 1) {
+    print(i);
+};
