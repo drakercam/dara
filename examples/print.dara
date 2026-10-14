@@ -11,11 +11,21 @@ io:debug:print();
 namespace hello {
 	namespace world {
 		namespace brotha {
-			func print() -> noval {
-				print("LOL");
+			construct loler {
+				func print() -> noval {
+					for (int i = 0; i < 10; i = i + 1) {
+						print(i);
+					};
+				};
 			};
 		};
 	};
 };
 
-hello:world:brotha:print();
+hello:world:brotha:loler.print();
+
+
+print(2 + 3 * 4);
+print((2 + 3) * 4);
+print(10 - 6 / 2);
+print(!false);
