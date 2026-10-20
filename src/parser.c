@@ -88,7 +88,10 @@ static bool parserLooksLikeAssignment(parser_T* parser) {
         token = lexerGetNextToken(&lookahead);
     }
 
-    bool result = token->type == TOKEN_EQUALS;
+    bool result =
+    token->type == TOKEN_EQUALS ||
+    token->type == TOKEN_PLUS_EQUAL ||
+    token->type == TOKEN_MINUS_EQUAL;
 
     tokenFree(token);
 
@@ -250,11 +253,7 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 
 				// A qualified name followed by '(' is a function call.
 				if (parser->currentToken->type == TOKEN_LEFTPAREN) {
-					ast_T* functionCall = parserParseFunctionCallNamed(
-						parser,
-						scope,
-						qualifiedName
-					);
+					ast_T* functionCall = parserParseFunctionCallNamed(parser, scope, qualifiedName);
 
 					free(qualifiedName);
 					return functionCall;
@@ -422,8 +421,7 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 
                     if (parser->currentToken->type != TOKEN_RIGHTPAREN) {
                         while (1) {
-                            ast_T* argument =
-                                parserParseComparison(parser, scope);
+                            ast_T* argument = parserParseComparison(parser, scope);
 
                             size_t newSize =
                                 methodCall->methodCallArgumentsSize + 1;
@@ -441,8 +439,7 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
                             }
 
                             methodCall->methodCallArguments = newArguments;
-                            methodCall->methodCallArguments[newSize - 1] =
-                                argument;
+                            methodCall->methodCallArguments[newSize - 1] = argument;
                             methodCall->methodCallArgumentsSize = newSize;
 
                             if (parser->currentToken->type != TOKEN_COMMA) {

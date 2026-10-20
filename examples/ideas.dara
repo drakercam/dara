@@ -1,16 +1,3 @@
-int x = 0;
-
-while (x < 3) {
-    print(x);
-    x = x + 1;
-};
-
-if (x == 3) {
-    print("if works");
-} else {
-    print("if failed");
-};
-
-for (int i = 0; i < 3; i = i + 1) {
-    print(i);
-};
+float x = 5.0;
+x += 5.0;
+print(x);

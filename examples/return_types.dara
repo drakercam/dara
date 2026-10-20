@@ -6,7 +6,7 @@ print(getHealth());
 
 func donothing() -> noval {
 	return;
-}
+};
 
 donothing();
 
@@ -19,7 +19,7 @@ construct Human {
 		print(h.y);
 	};
 	
-	func setPosition(Human h, int newX, int newY) -> noval {
+	func setPosition(Human& h, int newX, int newY) -> noval {
 		h.x = newX;
 		h.y = newY;
 	};
@@ -28,8 +28,10 @@ construct Human {
 Human human = construct Human(.x = 100, .y = 100);
 Human.printStats(human);
 
-// this is legal
 Human.setPosition(human, 400, 200);
 
-// this must be illegal
+print(human.x);
+
 human.x = 400;
+
+print(human.x);

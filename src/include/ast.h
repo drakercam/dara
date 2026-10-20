@@ -125,6 +125,7 @@ typedef struct AST_STRUCT {
 	// AST_ASSIGNMENT
 	struct AST_STRUCT* assignmentTarget;
 	struct AST_STRUCT* assignmentValue;
+	int assignmentOperator;
 	
 	// AST_FOR_LOOP
 	struct AST_STRUCT* forInitializer;
