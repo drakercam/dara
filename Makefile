@@ -5,7 +5,7 @@ SRCS = $(wildcard src/*.c)
 OBJS = $(SRCS:.c=.o)
 
 FLAGS = -g
-CPPFLAGS = -Iinclude
+CFLAGS = -std=c99 -Iinclude -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
 .PHONY: all install clean
 
@@ -15,7 +15,7 @@ $(EXEC): $(OBJS)
 	$(CC) $(OBJS) $(FLAGS) -o $@
 
 src/%.o: src/%.c
-	$(CC) $(CPPFLAGS) $(FLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(FLAGS) -c $< -o $@
 
 install: $(EXEC)
 	cp ./$(EXEC) /usr/local/bin/dara

@@ -16,8 +16,7 @@
  *
  * Terminates the program if the assignment target is invalid.
  */
- 
- ast_T* parserParseAssignment(parser_T* parser, scope_T* scope) {
+ast_T* parserParseAssignment(parser_T* parser, scope_T* scope) {
     ast_T* ast = astInit(AST_ASSIGNMENT);
     ast->scope = scope;
 
@@ -25,16 +24,25 @@
     ast->assignmentTarget = parserParseFactor(parser, scope);
 
     // Only variables and member accesses can be assignment targets.
-    if (
-        ast->assignmentTarget->type != AST_VARIABLE &&
-        ast->assignmentTarget->type != AST_MEMBER_ACCESS
-    ) {
+    if (ast->assignmentTarget->type != AST_VARIABLE &&
+        ast->assignmentTarget->type != AST_MEMBER_ACCESS) {
         printf("Invalid assignment target\n");
+        astFree(ast);
+        exit(1);
+    }
+
+    // Record the assignment operator.
+    ast->assignmentOperator = parser->currentToken->type;
+
+    if (ast->assignmentOperator != TOKEN_EQUALS &&
+        ast->assignmentOperator != TOKEN_PLUS_EQUAL &&
+        ast->assignmentOperator != TOKEN_MINUS_EQUAL) {
+        printf("Expected an assignment operator\n");
         astFree(ast);
         exit(EXIT_FAILURE);
     }
 
-    parserEat(parser, TOKEN_EQUALS);
+    parserEat(parser, ast->assignmentOperator);
 
     // Parse the right-hand expression.
     ast->assignmentValue = parserParseComparison(parser, scope);

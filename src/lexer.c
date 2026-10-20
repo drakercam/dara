@@ -87,20 +87,35 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_COMMA, lexerGetCurrCharAsStr(lexer)));
 				break;
 			case '+':
+				if (lexer->contents[lexer->index + 1] == '=') {	// += operator
+					char* value = calloc(3, sizeof(char));
+					value[0] = '+';
+					value[1] = '=';
+					
+					lexerAdvance(lexer);
+					
+					return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_PLUS_EQUAL, value));
+				}
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_PLUS, lexerGetCurrCharAsStr(lexer)));
 				break;
 			case '-':
-				if (lexer->contents[lexer->index + 1] == '>') {
+				if (lexer->contents[lexer->index + 1] == '=') {	// -= operator
+					char* value = calloc(3, sizeof(char));
+					value[0] = '-';
+					value[1] = '=';
+					
+					lexerAdvance(lexer);
+					
+					return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_MINUS_EQUAL, value));
+				}
+				if (lexer->contents[lexer->index + 1] == '>') {	// arrow operator
 					char* value = calloc(3, sizeof(char));
 					value[0] = '-';
 					value[1] = '>';
 
 					lexerAdvance(lexer);
 
-					return lexerAdvanceWithToken(
-						lexer,
-						tokenInit(TOKEN_ARROW, value)
-					);
+					return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_ARROW, value));
 				}
 			
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_MINUS, lexerGetCurrCharAsStr(lexer)));
@@ -238,7 +253,7 @@ token_T* lexerAdvanceWithToken(lexer_T* lexer, token_T* token) {
 	return token;
 }
 
-char* lexerGetCurrCharAsStr(lexer_T* lexer) {
+char* lexerGetCurrCharAsStr(lexer_T* lexer) {	// for single chars
 	char* str = calloc(2, sizeof(char));
 	str[0] = lexer->c;
 	str[1] = '\0';

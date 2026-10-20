@@ -42,15 +42,16 @@ value_T* visitorVisitNamespaceDefinition(visitor_T* visitor, ast_T* node) {
  */
 value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node) {
 	if (strcmp(node->functionCallName, "print") == 0) {
-		return builtinFunctionPrint(
-			visitor,
-			node->functionCallArguments,
-			node->functionCallArgumentsSize
-		);
+		return builtinFunctionPrint(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
 	}
 	
 	if (strcmp(node->functionCallName, "add") == 0) {
 		return builtinFunctionAdd(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
+	}
+	
+	// raylib
+	if (strcmp(node->functionCallName, "InitWindow") == 0) {
+		return builtinRaylibFuncInitWindow(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
 	}
 	
 	ast_T* funcDef;

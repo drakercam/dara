@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <raylib.h>
 
 /*
  * Evaluates and prints each argument, then frees its evaluated value.
@@ -58,8 +59,8 @@ value_T* builtinFunctionAdd(visitor_T* visitor, ast_T** args, int argsSize) {
 
     value_T* first = visitorVisit(visitor, args[0]);
 
-    if (first == NULL) {
-        return NULL;
+    if (first == (void*)0) {
+        return (void*)0;
     }
 
     if (first->type != VALUE_INT && first->type != VALUE_FLOAT) {
@@ -107,4 +108,35 @@ value_T* builtinFunctionAdd(visitor_T* visitor, ast_T** args, int argsSize) {
     }
 
     return valueInitFloat(resultFloat);
+}
+
+/*
+ * Builtin raylib InitWindow Function
+ */
+value_T* builtinRaylibFuncInitWindow(visitor_T* visitor, ast_T** args, int argsSize) {
+	if (argsSize == 0 || argsSize < 3) {
+	 printf("Error::InitWindow, expected 3 arguments, received %d", argsSize);
+	 exit(1);
+	}
+
+	// we expect a width, length, and title for the function call
+	value_T* width = visitorVisit(visitor, args[0]);
+	value_T* height = visitorVisit(visitor, args[1]);
+	value_T* title = visitorVisit(visitor, args[2]);
+
+	if (width->type != VALUE_FLOAT) {
+		printf("Error::InitWindow, expected 'width' parameter to be of type float\n");
+		exit(1);
+	}
+	 
+	if (height->type != VALUE_FLOAT) {
+		printf("Error::InitWindow, expected 'height' parameter to be of type float\n");
+		exit(1);
+	}
+	
+	if (title->type != VALUE_STRING) {
+		printf("Error::InitWindow, expected, 'title' parameter to be of type string\n");
+	}
+	
+	
 }

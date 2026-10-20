@@ -10,6 +10,8 @@ typedef struct TOKEN_STRUCT {
 		// arithmetic + logical
 		TOKEN_PLUS,
 		TOKEN_MINUS,
+		TOKEN_PLUS_EQUAL,
+		TOKEN_MINUS_EQUAL,
 		TOKEN_ARROW,
 		TOKEN_MULTIPLY,
 		TOKEN_DIVIDE,

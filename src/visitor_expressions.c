@@ -65,10 +65,10 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
     value_T* left = visitorVisit(visitor, node->binaryOperationLeft);
     value_T* right = visitorVisit(visitor, node->binaryOperationRight);
 
-    if (left == NULL || right == NULL) {
+    if (left == (void*)0 || right == (void*)0) {
         valueFree(left);
         valueFree(right);
-        return NULL;
+        return (void*)0;
     }
 
     if (left->type != right->type ||
@@ -135,8 +135,16 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
             case TOKEN_PLUS:
                 result = a + b;
                 break;
+                
+            case TOKEN_PLUS_EQUAL:
+                result = a + b;
+                break;
 
             case TOKEN_MINUS:
+                result = a - b;
+                break;
+                
+            case TOKEN_MINUS_EQUAL:
                 result = a - b;
                 break;
 
@@ -164,7 +172,7 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
 
         valueFree(left);
         valueFree(right);
-
+		
         return valueInitInt(result);
     }
 
@@ -174,13 +182,22 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
     double result;
 
     switch (op) {
-        case TOKEN_PLUS:
-            result = a + b;
-            break;
+		case TOKEN_PLUS:
+			result = a + b;
+			break;
+			
+		case TOKEN_PLUS_EQUAL:
+			result = a + b;
+			break;
 
-        case TOKEN_MINUS:
-            result = a - b;
-            break;
+		case TOKEN_MINUS:
+			result = a - b;
+			break;
+			
+		case TOKEN_MINUS_EQUAL:
+			result = a - b;
+			left->floatValue = result;
+			break;
 
         case TOKEN_MULTIPLY:
             result = a * b;

@@ -80,6 +80,7 @@ ast_T* astInit(int type) {
 	// AST_ASSIGNMENT
 	ast->assignmentTarget = (void*)0;
 	ast->assignmentValue = (void*)0;
+	ast->assignmentOperator = 0;
 	
 	// AST_FOR_LOOP
 	ast->forInitializer = (void*)0;

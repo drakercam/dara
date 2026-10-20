@@ -1,31 +1,14 @@
-namespace io {
-    namespace debug {
-        func print() -> noval {
-            print("debug");
-        };
-    };
-};
-
-io:debug:print();
-
-namespace hello {
-	namespace world {
-		namespace brotha {
-			construct loler {
-				func print() -> noval {
-					for (int i = 0; i < 10; i = i + 1) {
-						print(i);
-					};
-				};
-			};
-		};
+construct Player {
+	int x;
+	int y;
+	
+	func move(Player& p) -> noval {
+		p.x += 1;
+		p.y += 1;
 	};
 };
 
-hello:world:brotha:loler.print();
-
-
-print(2 + 3 * 4);
-print((2 + 3) * 4);
-print(10 - 6 / 2);
-print(!false);
+Player player = construct Player(.x = 10, .y = 10);
+Player.move(player);
+print(player.x);
+print(player.y);

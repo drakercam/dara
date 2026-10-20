@@ -1,6 +1,7 @@
 #include "include/visitor.h"
 #include "include/scope.h"
 #include "include/value.h"
+#include "include/token.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -96,15 +97,59 @@ value_T* visitorVisitVariable(visitor_T* visitor, ast_T* node) {
 value_T* visitorVisitAssignment(visitor_T* visitor, ast_T* node) {
     ast_T* target = node->assignmentTarget;
 
-    // Evaluate the new value before modifying anything.
-    value_T* newValue = visitorVisit(
-        visitor,
-        node->assignmentValue
-    );
+
+    // Evaluate the right-hand side first.
+    value_T* newValue = visitorVisit(visitor, node->assignmentValue);
 
     if (newValue == (void*)0) {
         printf("Failed to evaluate assignment value\n");
         exit(1);
+    }
+
+    // Compound assignment combines the existing target value with
+    // the evaluated right-hand value.
+    if (
+        node->assignmentOperator == TOKEN_PLUS_EQUAL ||
+        node->assignmentOperator == TOKEN_MINUS_EQUAL
+    ) {
+        value_T* oldValue = visitorGetAssignmentTargetValue(
+            visitor,
+            target
+        );
+
+        if (
+            oldValue->type != newValue->type ||
+            (oldValue->type != VALUE_INT &&
+             oldValue->type != VALUE_FLOAT)
+        ) {
+            printf("Compound assignment requires matching numeric types\n");
+            valueFree(newValue);
+            exit(EXIT_FAILURE);
+        }
+
+        if (oldValue->type == VALUE_INT) {
+            int result;
+
+            if (node->assignmentOperator == TOKEN_PLUS_EQUAL) {
+                result = oldValue->intValue + newValue->intValue;
+            } else {
+                result = oldValue->intValue - newValue->intValue;
+            }
+
+            valueFree(newValue);
+            newValue = valueInitInt(result);
+        } else {
+            double result;
+
+            if (node->assignmentOperator == TOKEN_PLUS_EQUAL) {
+                result = oldValue->floatValue + newValue->floatValue;
+            } else {
+                result = oldValue->floatValue - newValue->floatValue;
+            }
+
+            valueFree(newValue);
+            newValue = valueInitFloat(result);
+        }
     }
 
     // Find the current value for type checking.
@@ -137,10 +182,7 @@ value_T* visitorVisitAssignment(visitor_T* visitor, ast_T* node) {
         exit(1);
     }
 	if (target->type == AST_VARIABLE) {
-		variable_T* variable = scopeGetVariable(
-			target->scope,
-			target->variableName
-		);
+		variable_T* variable = scopeGetVariable(target->scope, target->variableName);
 
 		if (variable->ownsValue) {
 			// Ordinary variable: replace its owned value.
@@ -176,10 +218,7 @@ value_T* visitorVisitAssignment(visitor_T* visitor, ast_T* node) {
 
 value_T* visitorGetAssignmentTargetValue(visitor_T* visitor, ast_T* target) {
     if (target->type == AST_VARIABLE) {
-        variable_T* variable = scopeGetVariable(
-            target->scope,
-            target->variableName
-        );
+        variable_T* variable = scopeGetVariable(target->scope, target->variableName);
 
         if (variable == (void*)0) {
             printf(
@@ -194,10 +233,7 @@ value_T* visitorGetAssignmentTargetValue(visitor_T* visitor, ast_T* target) {
 
     if (target->type == AST_MEMBER_ACCESS) {
         // Resolve the actual stored object, not a copy.
-        value_T* object = visitorGetAssignmentTargetValue(
-            visitor,
-            target->memberAccessObject
-        );
+        value_T* object = visitorGetAssignmentTargetValue(visitor, target->memberAccessObject);
 
         if (object == (void*)0 || object->type != VALUE_CONSTRUCT) {
             printf("Cannot assign a field on a non-construct value\n");
