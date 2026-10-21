@@ -17,6 +17,7 @@
 ast_T* parserParseString(parser_T* parser, scope_T* scope) {
 	
 	ast_T* astString = astInit(AST_STRING);
+	parserSetNodeLocation(astString, parser->currentToken);
 	astString->stringValue = calloc(strlen(parser->currentToken->value) + 1, sizeof(char));
     strcpy(astString->stringValue, parser->currentToken->value);
 	
@@ -41,6 +42,7 @@ ast_T* parserParseString(parser_T* parser, scope_T* scope) {
 
 ast_T* parserParseNumber(parser_T* parser, scope_T* scope) {
 	ast_T* astNumber = astInit(AST_NUMBER);
+	parserSetNodeLocation(astNumber, parser->currentToken);
 	astNumber->numberIsFloat = strchr(parser->currentToken->value, '.') != (void*)0;
 	astNumber->numberValue = strtod(parser->currentToken->value, (void*)0);
 	

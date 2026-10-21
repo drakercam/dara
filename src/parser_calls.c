@@ -22,8 +22,12 @@
  
  char* parserParseQualifiedFunctionName(parser_T* parser) {
     if (parser->currentToken->type != TOKEN_ID) {
-        printf("Expected function name\n");
-        exit(EXIT_FAILURE);
+        parserReportError(
+			parser,
+			"E1106",
+			"Expected a function name."
+		);
+		exit(EXIT_FAILURE);
     }
 
     size_t nameLength = strlen(parser->currentToken->value);
@@ -41,9 +45,13 @@
         parserEat(parser, TOKEN_COLON);
 
         if (parser->currentToken->type != TOKEN_ID) {
-            printf("Expected name after ':'\n");
-            free(name);
-            exit(EXIT_FAILURE);
+            parserReportError(
+				parser,
+				"E1107",
+				"Expected an identifier after ':'."
+			);
+			free(name);
+			exit(EXIT_FAILURE);
         }
 
         const char* segment = parser->currentToken->value;

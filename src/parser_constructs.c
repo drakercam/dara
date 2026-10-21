@@ -42,8 +42,12 @@
  
  char* parserParseQualifiedConstructName(parser_T* parser, scope_T* scope) {
     if (parser->currentToken->type != TOKEN_ID) {
-        printf("Expected construct name\n");
-        exit(EXIT_FAILURE);
+        parserReportError(
+			parser,
+			"E1108",
+			"Expected a construct name."
+		);
+		exit(EXIT_FAILURE);
     }
 
     size_t nameLength = strlen(parser->currentToken->value);
@@ -68,9 +72,13 @@
         parserEat(parser, TOKEN_COLON);
 
         if (parser->currentToken->type != TOKEN_ID) {
-            printf("Expected name after ':'\n");
-            free(name);
-            exit(EXIT_FAILURE);
+			parserReportError(
+				parser,
+				"E1107",
+				"Expected an identifier after ':'."
+			);
+			free(name);
+			exit(EXIT_FAILURE);
         }
 
         const char* segment = parser->currentToken->value;
@@ -103,9 +111,18 @@
 
     // Validate the complete path, including every nested namespace.
     if (scopeGetQualifiedConstructDefinition(scope, name) == (void*)0) {
-        printf("Unknown construct '%s'\n", name);
-        free(name);
-        exit(EXIT_FAILURE);
+		char message[256];
+
+		snprintf(
+			message,
+			sizeof(message),
+			"Unknown construct '%s'.",
+			name
+		);
+
+		parserReportError(parser, "E1109", message);
+		free(name);
+		exit(EXIT_FAILURE);
     }
 
     return name;
@@ -131,8 +148,12 @@
 	
 	// store the construct name
 	if (parser->currentToken->type != TOKEN_ID) {
-		printf("Expected construct name\n");
-		exit(1);
+		parserReportError(
+			parser,
+			"E1108",
+			"Expected a construct name."
+		);
+		exit(EXIT_FAILURE);
 	}
 	
 	ast->constructDefinitionName = calloc(strlen(parser->currentToken->value) + 1, sizeof(char));
@@ -146,8 +167,12 @@
 	// Parse fields and methods inside the construct.
 	while (parser->currentToken->type != TOKEN_RIGHTBRACE) {
 		if (parser->currentToken->type != TOKEN_ID) {
-			printf("Expected field or method declaration\n");
-			exit(1);
+			parserReportError(
+				parser,
+				"E1110",
+				"Expected a field or method declaration."
+			);
+			exit(EXIT_FAILURE);
 		}
 
 		// Method declaration: func name(...) -> type { ... }
@@ -191,8 +216,18 @@
 			strcmp(fieldType, "float") != 0 &&
 			strcmp(fieldType, "string") != 0 &&
 			!parserIsConstructType(scope, fieldType)) {
-			printf("Unknown field type '%s'\n", fieldType);
-			exit(1);
+				
+			char message[256];
+
+			snprintf(
+				message,
+				sizeof(message),
+				"Unknown field type '%s'.",
+				fieldType
+			);
+
+			parserReportError(parser, "E1111", message);
+			exit(EXIT_FAILURE);
 		}
 
 		// Preserve var as an alias for auto
@@ -209,9 +244,13 @@
 		parserEat(parser, TOKEN_ID);
 
 		if (parser->currentToken->type != TOKEN_ID) {
-			printf("Expected field name\n");
+			parserReportError(
+				parser,
+				"E1112",
+				"Expected a field name."
+			);
 			free(fieldTypeCopy);
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 
 		char* fieldName = calloc(strlen(parser->currentToken->value) + 1, sizeof(char));
@@ -301,9 +340,13 @@ ast_T* parserParseConstructInstantiation(parser_T* parser, scope_T* scope) {
             parserEat(parser, TOKEN_DOT);
 
             if (parser->currentToken->type != TOKEN_ID) {
-                printf("Expected field name after '.'\n");
-                astFree(ast);
-                exit(EXIT_FAILURE);
+				parserReportError(
+					parser,
+					"E1113",
+					"Expected a field name after '.'."
+				);
+				astFree(ast);
+				exit(EXIT_FAILURE);
             }
 
             char* fieldName = calloc(

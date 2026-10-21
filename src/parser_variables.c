@@ -26,9 +26,9 @@ ast_T* parserParseAssignment(parser_T* parser, scope_T* scope) {
     // Only variables and member accesses can be assignment targets.
     if (ast->assignmentTarget->type != AST_VARIABLE &&
         ast->assignmentTarget->type != AST_MEMBER_ACCESS) {
-        printf("Invalid assignment target\n");
+        parserReportError(parser, "E1103", "Invalid Assignment Target.");
         astFree(ast);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     // Record the assignment operator.
@@ -37,7 +37,7 @@ ast_T* parserParseAssignment(parser_T* parser, scope_T* scope) {
     if (ast->assignmentOperator != TOKEN_EQUALS &&
         ast->assignmentOperator != TOKEN_PLUS_EQUAL &&
         ast->assignmentOperator != TOKEN_MINUS_EQUAL) {
-        printf("Expected an assignment operator\n");
+        parserReportError(parser, "E1104", "Expected an Assignment Operator.");
         astFree(ast);
         exit(EXIT_FAILURE);
     }
@@ -71,6 +71,7 @@ ast_T* parserParseAssignment(parser_T* parser, scope_T* scope) {
 	}
 		
 	ast_T* astVariable = astInit(AST_VARIABLE);
+	parserSetNodeLocation(astVariable, parser->currentToken);
 	astVariable->variableName = calloc(strlen(tokenValue) + 1, sizeof(char));
 	strcpy(astVariable->variableName, tokenValue);
 	
@@ -128,16 +129,21 @@ ast_T* parserParseVariableDefinition(parser_T* parser, scope_T* scope) {
 	char* variableDefinitionVariableName = calloc(strlen(parser->currentToken->value) + 1, sizeof(char));
 	strcpy(variableDefinitionVariableName, variableName);
 	
+	sourceLocation_T startLocation = parser->currentToken->location;
 	parserEat(parser, TOKEN_ID); // var name
-	parserEat(parser, TOKEN_EQUALS);
-	ast_T* variableDefinitionValue = parserParseComparison(parser, scope);
 	
 	ast_T* variableDefinition = astInit(AST_VARIABLE_DEFINITION);
 	variableDefinition->variableDefinitionType = variableDefinitionType;
 	variableDefinition->variableDefinitionVariableName = variableDefinitionVariableName;
-	variableDefinition->variableDefinitionValue = variableDefinitionValue;
-	
+	variableDefinition->variableDefinitionValue = (void*)0;
 	variableDefinition->scope = scope;
+	variableDefinition->location = startLocation;
+	
+	if (parser->currentToken->type == TOKEN_EQUALS) {
+		parserEat(parser, TOKEN_EQUALS);
+		
+		variableDefinition->variableDefinitionValue = parserParseComparison(parser, scope);
+	}
 	
 	return variableDefinition;	
 }

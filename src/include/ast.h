@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 #include "scope.h"
+#include "source.h"
 
 typedef struct AST_STRUCT {
 	enum {
@@ -33,6 +34,9 @@ typedef struct AST_STRUCT {
 		AST_ENUM_DEFINITION,
 		
 	} type;
+	
+	// SOURCE_LOCATION
+	sourceLocation_T location;
 	
 	// scope contains function and variable definitions
 	struct SCOPE_STRUCT* scope;

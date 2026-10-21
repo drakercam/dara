@@ -2,11 +2,15 @@
 #define LEXER_H
 
 #include "token.h"
+#include <stddef.h>
 
 typedef struct LEXER_STRUCT {
 	char c;
 	unsigned int index;
 	char* contents;	// source code
+	
+	size_t line;
+	size_t column;
 	
 } lexer_T;
 

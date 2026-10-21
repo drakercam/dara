@@ -1,9 +1,58 @@
 #include "include/parser.h"
+#include "include/diagnostic.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+
+
+/*
+ * Reports a parser diagnostic at the current token's location.
+ */
+void parserReportError(parser_T* parser, const char* code, const char* message) {
+    char* ownedCode = calloc(strlen(code) + 1, sizeof(char));
+    char* ownedMessage = calloc(strlen(message) + 1, sizeof(char));
+
+    if (ownedCode == (void*)0 || ownedMessage == (void*)0) {
+        free(ownedCode);
+        free(ownedMessage);
+        fprintf(stderr, "Failed to allocate diagnostic.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    strcpy(ownedCode, code);
+    strcpy(ownedMessage, message);
+
+    diagnostic_T* diagnostic = diagnosticInit(
+        DIAGNOSTIC_PARSER,
+        ownedCode,
+        ownedMessage,
+        parser->currentToken->location
+    );
+
+    if (diagnostic == (void*)0) {
+        free(ownedCode);
+        free(ownedMessage);
+        fprintf(stderr, "Failed to allocate diagnostic.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    diagnosticPrint(diagnostic, parser->fileName);
+    diagnosticFree(diagnostic);
+}
+
+/*
+ * Copies a token's source location to an AST node.
+ * The token must remain valid while this function runs.
+ */
+void parserSetNodeLocation(ast_T* node, const token_T* token) {
+    if (node == (void*)0 || token == (void*)0) {
+        return;
+    }
+
+    node->location = token->location;
+}
 
 static bool parserLooksLikeTypedDeclaration(parser_T* parser) {
     lexer_T lookahead = *parser->lexer;
@@ -123,17 +172,72 @@ void parserFree(parser_T* parser) {
 	free(parser);
 }
 
+
+/*
+ * Returns a human-readable name for a token type.
+ */
+static const char* parserTokenTypeName(int tokenType) {
+    switch (tokenType) {
+        case TOKEN_ID:              return "identifier";
+        case TOKEN_EQUALS:          return "'='";
+        case TOKEN_STRING:          return "string literal";
+        case TOKEN_NUMBER:          return "number";
+        case TOKEN_PLUS:            return "'+'";
+        case TOKEN_MINUS:           return "'-'";
+        case TOKEN_PLUS_EQUAL:      return "'+='";
+        case TOKEN_MINUS_EQUAL:     return "'-='";
+        case TOKEN_ARROW:           return "'->'";
+        case TOKEN_MULTIPLY:        return "'*'";
+        case TOKEN_DIVIDE:          return "'/'";
+        case TOKEN_EQUAL_EQUAL:     return "'=='";
+        case TOKEN_LESS:            return "'<'";
+        case TOKEN_MORE:            return "'>'";
+        case TOKEN_LESS_THAN_EQUAL: return "'<='";
+        case TOKEN_MORE_THAN_EQUAL: return "'>='";
+        case TOKEN_NOT_EQUAL:       return "'!='";
+        case TOKEN_NOT:             return "'!'";
+        case TOKEN_SEMI:            return "';'";
+        case TOKEN_LEFTPAREN:       return "'('";
+        case TOKEN_RIGHTPAREN:      return "')'";
+        case TOKEN_LEFTBRACE:       return "'{'";
+        case TOKEN_RIGHTBRACE:      return "'}'";
+        case TOKEN_COMMA:           return "','";
+        case TOKEN_COLON:           return "':'";
+        case TOKEN_DOT:             return "'.'";
+        case TOKEN_AMPERSAND:       return "'&'";
+        case TOKEN_EOF:             return "end of file";
+        default:                    return "unknown token";
+    }
+}
+
+/*
+ * Consumes the current token if it matches the expected type.
+ * Otherwise, reports a syntax diagnostic and terminates parsing.
+ */
 void parserEat(parser_T* parser, int tokenType) {
-	if (parser->currentToken->type == tokenType) {
-		tokenFree(parser->previousToken);
-		
-		parser->previousToken = parser->currentToken;
-		parser->currentToken = lexerGetNextToken(parser->lexer);
-	}
-	else {
-		printf("Unexpected token: '%s', with type %d\n", parser->currentToken->value, parser->currentToken->type);
-		exit(1);
-	}
+    if (parser->currentToken->type == tokenType) {
+        tokenFree(parser->previousToken);
+        parser->previousToken = parser->currentToken;
+        parser->currentToken = lexerGetNextToken(parser->lexer);
+        return;
+    }
+
+        char message[512];
+
+    snprintf(
+        message,
+        sizeof(message),
+        "Expected %s, but found %s%s%s.",
+        parserTokenTypeName(tokenType),
+        parser->currentToken->value != (void*)0 ? "'" : "",
+        parser->currentToken->value != (void*)0
+            ? parser->currentToken->value
+            : parserTokenTypeName(parser->currentToken->type),
+        parser->currentToken->value != (void*)0 ? "'" : ""
+    );
+
+    parserReportError(parser, "E1101", message);
+    exit(EXIT_FAILURE);
 }
 
 ast_T* parserParse(parser_T* parser, scope_T* scope) {
@@ -178,14 +282,27 @@ ast_T* parserParseStatement(parser_T* parser, scope_T* scope) {
 			return parserParseAssignment(parser, scope);
 		}
 
-		return parserParseComparison(parser, scope);
+		ast_T* expression = parserParseComparison(parser, scope);
+
+		if (parser->currentToken->type == TOKEN_EQUALS ||
+			parser->currentToken->type == TOKEN_PLUS_EQUAL ||
+			parser->currentToken->type == TOKEN_MINUS_EQUAL) {
+				
+			parserReportError(parser, "E1103", "Invalid assignment target.");
+
+			astFree(expression);
+			exit(EXIT_FAILURE);
+		}
+
+		return expression;
     }
 
-    return astInit(AST_NOOP);
+    return parserParseComparison(parser, scope);
 }
 
 ast_T* parserParseStatements(parser_T* parser, scope_T* scope) {
     ast_T* compound = astInit(AST_COMPOUND);
+    parserSetNodeLocation(compound, parser->currentToken);
     compound->scope = scope;
 
     while (parser->currentToken->type != TOKEN_RIGHTBRACE && parser->currentToken->type != TOKEN_EOF) {
@@ -218,14 +335,21 @@ ast_T* parserParseStatements(parser_T* parser, scope_T* scope) {
         if (parser->currentToken->type == TOKEN_SEMI) {
             parserEat(parser, TOKEN_SEMI);
         }
-        else if (
-            parser->currentToken->type != TOKEN_RIGHTBRACE &&
-            parser->currentToken->type != TOKEN_EOF
-        ) {
-            printf("Expected ';' or end of block\n");
-            astFree(compound);
-            exit(EXIT_FAILURE);
-        }
+		else if (parser->currentToken->type == TOKEN_EQUALS ||
+			parser->currentToken->type == TOKEN_PLUS_EQUAL ||
+			parser->currentToken->type == TOKEN_MINUS_EQUAL) {
+				
+			parserReportError(parser, "E1103", "Invalid assignment target.");
+			astFree(compound);
+			exit(EXIT_FAILURE);
+		}
+		else if (parser->currentToken->type != TOKEN_RIGHTBRACE &&
+			parser->currentToken->type != TOKEN_EOF) {
+				
+			parserReportError(parser,"E1105", "Expected ';' or End of Block.");
+			astFree(compound);
+			exit(EXIT_FAILURE);
+		}
     }
 
     return compound;
@@ -241,6 +365,7 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 
         case TOKEN_ID: {
 			// Check whether this is a qualified construct name: std:array...
+			sourceLocation_T startLocation = parser->currentToken->location;
 			lexer_T lookahead = *parser->lexer;
 			token_T* nextToken = lexerGetNextToken(&lookahead);
 
@@ -347,6 +472,7 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
                 strcmp(parser->currentToken->value, "false") == 0
             ) {
                 object = astInit(AST_BOOLEAN);
+                parserSetNodeLocation(object, parser->currentToken);
                 object->booleanValue =
                     strcmp(parser->currentToken->value, "true") == 0;
                 object->scope = scope;
@@ -464,7 +590,8 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
                     object = member;
                 }
             }
-
+			
+			object->location = startLocation;
             return object;
         }
 
@@ -477,13 +604,24 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
             return expression;
         }
 
-        default:
-            printf(
-                "Unexpected token in expression: '%s', with type %d\n",
-                parser->currentToken->value,
-                parser->currentToken->type
-            );
-            exit(1);
+        default: {
+			char message[256];
+
+			const char* tokenValue = parser->currentToken->value;
+			const char* tokenName = parserTokenTypeName(parser->currentToken->type);
+
+			snprintf(
+				message,
+				sizeof(message),
+				"Expected an expression, but found %s%s%s.",
+				tokenValue != (void*)0 ? "'" : "",
+				tokenValue != (void*)0 ? tokenValue : tokenName,
+				tokenValue != (void*)0 ? "'" : ""
+			);
+
+			parserReportError(parser, "E1102", message);
+			exit(EXIT_FAILURE);
+		}
     }
 }
 

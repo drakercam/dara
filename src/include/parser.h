@@ -11,6 +11,8 @@ typedef struct PARSER_STRUCT {
 	token_T* previousToken;
 	scope_T* scope;
 	
+	const char* fileName;
+	
 } parser_T;
 
 parser_T* parserInit(lexer_T* lexer);
@@ -19,6 +21,8 @@ void parserEat(parser_T* parser, int tokenType); // we expect a certain token, i
 
 ast_T* parserParse(parser_T* parser, scope_T* scope);	// return our source code as an AST tree
 
+void parserSetNodeLocation(ast_T* node, const token_T* token);
+void parserReportError(parser_T* parser, const char* code, const char* message);
 
 /*
  * Parses an if statement, including optional else branches.
