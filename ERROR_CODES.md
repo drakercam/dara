@@ -34,11 +34,32 @@ This document records Dara's parser and runtime diagnostic codes. Error codes ar
 | Code | Category | Message / meaning | How to fix |
 |---|---|---|---|
 | `E2001` | Runtime | Cannot infer the type of a variable declared as `auto` without an initializer. | Initialize the variable, for example `auto count = 0;`, or declare an explicit type. |
+| `E2002` | Runtime | Undefined variable. | Declare the variable or correct its name. Confirm that this error path emits `E2002` through the diagnostic reporter. |
+
+## Native builtin errors
+
+Raylib builtins currently validate their argument counts and types. Some implementations report invalid arguments using direct runtime messages rather than a structured diagnostic code.
+
+These messages are runtime failures, but they are **not assigned stable error codes in this reference yet**. Do not treat them as implemented `E20xx` diagnostics until the corresponding code paths use the shared diagnostic reporter.
+
+Examples of currently validated calls include:
+
+- `rl:InitWindow(width, height, title)` — expects two integers and a string.
+- `rl:WindowShouldClose()` — expects no arguments.
+- `rl:BeginDrawing()` — expects no arguments.
+- `rl:EndDrawing()` — expects no arguments.
+- `rl:CloseWindow()` — expects no arguments.
+- `rl:ClearBackground(color)` — expects one color.
+- `rl:DrawRectangle(x, y, width, height, color)` — expects four integers and one color.
+
+The recognized color constants include `rl:WHITE`, `rl:BLACK`, `rl:RED`, `rl:GREEN`, and `rl:BLUE`. Passing an unsupported or incorrectly typed value to a native function may produce a runtime failure.
 
 ## Notes
 
-- `E1101`–`E1122` are the parser diagnostic codes planned for the current parser migration. A code is only considered implemented once the corresponding code path calls the diagnostic reporter.
-- `E1119` is reserved for unknown-namespace lookup if that error path is implemented; a namespace registration/allocation failure is not the same error.
-- Allocation failures are currently reported separately and are not assigned parser error codes in this document.
-- Lexer diagnostic codes are not listed here because their current definitions have not yet been verified.
-- Runtime codes beyond `E2001` should be added when their diagnostic paths are confirmed.
+- A code is considered implemented only when an actual code path emits it through the diagnostic system.
+- `E1101`–`E1122` describe parser conditions only where the corresponding paths are wired to the diagnostic reporter; reserved codes should be marked accordingly.
+- `E2001` is the documented runtime diagnostic for an uninitialized `auto` variable.
+- Verify that undefined-variable failures emit `E2002` before treating that code as fully implemented.
+- Raylib builtin argument failures have not yet been assigned stable structured diagnostic codes.
+- Allocation failures and other failures may still be reported separately from the shared diagnostic system.
+- Lexer diagnostic codes should be added after their current definitions and emission paths have been verified.

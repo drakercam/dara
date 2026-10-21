@@ -1,3 +1,38 @@
-namespace {
+construct Window {
+	int width;
+	int height;
+	string title;
 	
+	func init(Window window) -> noval {
+		rl:InitWindow(window.width, window.height, window.title);
+	};
+	
+	func close() -> noval {
+		rl:CloseWindow();
+	};
 };
+
+func main() -> noval {
+    Window window = construct Window(
+		.width = 800,
+		.height = 600,
+		.title = "example"
+    );
+    Window.init(window);
+
+    while (!rl:WindowShouldClose()) {
+        rl:BeginDrawing();
+
+        rl:ClearBackground(rl:WHITE);
+
+        rl:DrawRectangle(100, 100, 200, 150, rl:BLUE);
+        rl:DrawRectangle(400, 100, 100, 100, rl:RED);
+        rl:DrawRectangle(100, 300, 400, 50, rl:GREEN);
+
+        rl:EndDrawing();
+    };
+
+    Window.close();
+};
+
+main();

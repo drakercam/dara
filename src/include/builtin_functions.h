@@ -16,8 +16,21 @@ value_T* builtinFunctionPrint(visitor_T* visitor, ast_T** args, int argsSize);
 value_T* builtinFunctionAdd(visitor_T* visitor, ast_T** args, int argsSize);
 
 /*
- * Builtin raylib InitWindow Function
+ * Builtin raylib Functions
  */
 value_T* builtinRaylibFuncInitWindow(visitor_T* visitor, ast_T** args, int argsSize);
+value_T* builtinRaylibFuncWindowShouldClose(visitor_T* visitor, ast_T** args, int argsSize);
+value_T* builtinRaylibFuncBeginDrawing(visitor_T* visitor, ast_T** args, int argsSize);
+value_T* builtinRaylibFuncEndDrawing(visitor_T* visitor, ast_T** args, int argsSize);
+value_T* builtinRaylibFuncCloseWindow(visitor_T* visitor, ast_T** args, int argsSize);
+value_T* builtinRaylibFuncClearBackground(visitor_T* visitor, ast_T** args, int argsSize);
+
+value_T* builtinRaylibFuncDrawRectangle(visitor_T* visitor, ast_T** args, int argsSize);
+
+/*
+ * Resolves a raylib constant such as rl:WHITE or rl:BLUE.
+ * Returns NULL if the name is not a recognized raylib constant.
+ */
+value_T* builtinRaylibGetConstant(const char* name);
 
 #endif

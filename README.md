@@ -17,6 +17,13 @@ The project is actively evolving. This README describes the current development 
 - Namespaces and qualified names.
 - Reference parameters using `&`, including references to nested fields.
 - A shared diagnostic system being integrated across parser and runtime code.
+- Runtime color values with RGBA components.
+- Initial native Raylib bindings under the `rl:` namespace.
+- Raylib window lifecycle functions: `rl:InitWindow`, `rl:WindowShouldClose`, and `rl:CloseWindow`.
+- Frame drawing functions: `rl:BeginDrawing`, `rl:EndDrawing`, and `rl:ClearBackground`.
+- Filled rectangle drawing through `rl:DrawRectangle`.
+- Built-in color constants: `rl:WHITE`, `rl:BLACK`, `rl:RED`, `rl:GREEN`, and `rl:BLUE`.
+
 
 ## Build and run
 
@@ -158,6 +165,47 @@ The current expression syntax includes:
 - Assignment: `=`, `+=`, `-=`
 
 Statements are separated with semicolons. Blocks use braces.
+
+## Graphics with Raylib
+
+Dara includes an initial set of native Raylib bindings, allowing Dara programs to create windows and draw simple shapes.
+
+```dara
+func main() -> noval {
+    rl:InitWindow(1280, 720, "Dara graphics");
+
+    while (!rl:WindowShouldClose()) {
+        rl:BeginDrawing();
+
+        rl:ClearBackground(rl:WHITE);
+        rl:DrawRectangle(100, 100, 200, 150, rl:BLUE);
+
+        rl:EndDrawing();
+    };
+
+    rl:CloseWindow();
+};
+
+main();
+```
+
+The `rl:` prefix exposes the currently implemented Raylib builtins. Color constants evaluate to Dara color values, which are converted to Raylib colors by the native drawing functions.
+
+### Raylib build requirements
+
+The interpreter must be compiled and linked against Raylib and its required platform libraries. The project's Makefile supplies the link dependencies.
+
+Build and run the example with:
+
+```sh
+make clean && make
+./dara.out examples/test.dara
+```
+
+The example assumes that Raylib is installed and that the program is being run in an environment capable of opening a graphical window.
+
+The binding layer is still limited. It does not automatically expose the entire Raylib API; each additional native function must be implemented and registered explicitly.
+
 
 ## Diagnostics
 

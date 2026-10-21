@@ -384,13 +384,14 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 					return functionCall;
 				}
 
-				// Otherwise, preserve qualified construct method calls.
+				// Otherwise, check whether this is a construct method call.
 				if (scopeGetQualifiedConstructDefinition(scope, qualifiedName) == (void*)0) {
-					char message[256];
-					snprintf(message, sizeof(message), "Unknown construct '%s'.", qualifiedName);
-					parserReportError(parser, "E1109", message);
-					free(qualifiedName);
-					exit(EXIT_FAILURE);
+					ast_T* variable = astInit(AST_VARIABLE);
+					variable->variableName = qualifiedName;
+					variable->scope = scope;
+					variable->location = startLocation;
+
+					return variable;
 				}
 
 				char* constructName = qualifiedName;

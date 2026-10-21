@@ -41,17 +41,41 @@ value_T* visitorVisitNamespaceDefinition(visitor_T* visitor, ast_T* node) {
  * Evaluates a function call, binds arguments, and checks its return type.
  */
 value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node) {
-	if (strcmp(node->functionCallName, "print") == 0) {
+	if (strcmp(node->functionCallName, "std:print") == 0) {
 		return builtinFunctionPrint(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
 	}
 	
-	if (strcmp(node->functionCallName, "add") == 0) {
+	if (strcmp(node->functionCallName, "std:add") == 0) {
 		return builtinFunctionAdd(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
 	}
 	
 	// raylib
-	if (strcmp(node->functionCallName, "InitWindow") == 0) {
+	if (strcmp(node->functionCallName, "rl:InitWindow") == 0) {
 		return builtinRaylibFuncInitWindow(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
+	}
+	
+	if (strcmp(node->functionCallName, "rl:WindowShouldClose") == 0) {
+		return builtinRaylibFuncWindowShouldClose(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
+	}
+	
+	if (strcmp(node->functionCallName, "rl:BeginDrawing") == 0) {
+		return builtinRaylibFuncBeginDrawing(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
+	}
+	
+	if (strcmp(node->functionCallName, "rl:EndDrawing") == 0) {
+		return builtinRaylibFuncEndDrawing(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
+	}
+	
+	if (strcmp(node->functionCallName, "rl:CloseWindow") == 0) {
+		return builtinRaylibFuncCloseWindow(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
+	}
+	
+	if (strcmp(node->functionCallName, "rl:ClearBackground") == 0) {
+		return builtinRaylibFuncClearBackground(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
+	}
+	
+	if (strcmp(node->functionCallName, "rl:DrawRectangle") == 0) {
+		return builtinRaylibFuncDrawRectangle(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
 	}
 	
 	ast_T* funcDef;
