@@ -386,7 +386,9 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 
 				// Otherwise, preserve qualified construct method calls.
 				if (scopeGetQualifiedConstructDefinition(scope, qualifiedName) == (void*)0) {
-					printf("Unknown construct '%s'\n", qualifiedName);
+					char message[256];
+					snprintf(message, sizeof(message), "Unknown construct '%s'.", qualifiedName);
+					parserReportError(parser, "E1109", message);
 					free(qualifiedName);
 					exit(EXIT_FAILURE);
 				}
@@ -396,7 +398,7 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 				parserEat(parser, TOKEN_DOT);
 
 				if (parser->currentToken->type != TOKEN_ID) {
-					printf("Expected method name after qualified construct\n");
+					parserReportError(parser, "E1120", "Expected a method name after a qualified construct.");
 					free(constructName);
 					exit(EXIT_FAILURE);
 				}
@@ -487,7 +489,7 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
                 parserEat(parser, TOKEN_DOT);
 
                 if (parser->currentToken->type != TOKEN_ID) {
-                    printf("Expected field or method name after '.'\n");
+                    parserReportError(parser, "E1121", "Expected field or method name after '.'.");
                     astFree(object);
                     exit(1);
                 }
@@ -511,10 +513,10 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
                 // A name followed by '(' is a method call.
                 if (parser->currentToken->type == TOKEN_LEFTPAREN) {
                     if (object->type != AST_VARIABLE) {
-                        printf("Expected a construct name before method call\n");
+                        parserReportError(parser, "E1122", "Expected a construct name before method call.");
                         free(fieldName);
                         astFree(object);
-                        exit(1);
+                        exit(EXIT_FAILURE);
                     }
 
                     ast_T* methodCall = astInit(AST_METHOD_CALL);

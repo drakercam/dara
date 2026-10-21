@@ -1,30 +1,28 @@
-# Dara --- Language and Runtime Notes
+# Dara — Language and Runtime Notes
 
-This document describes the current language behavior and the
-implementation model. It replaces the earlier feature-roadmap framing:
-features listed as current below have been exercised in the interpreter;
-ideas not implemented are explicitly marked as future work.
+This document describes Dara's current language behavior and implementation model. Features described as implemented reflect the current development state; experimental behavior and future work are identified separately.
 
 ## 1. Interpreter pipeline
 
-Dara is an interpreted language implemented in C:
+Dara is an interpreted programming language implemented in C.
 
-1.  `io.c` reads the source file.
-2.  `lexer.c` converts characters to tokens.
-3.  `parser.c` builds AST nodes.
-4.  `visitor.c` evaluates the AST.
-5.  `scope.c` stores variables and function/construct definitions.
-6.  `value.c` represents runtime values and manages their allocations.
+1. `io.c` reads the source file.
+2. `lexer.c` converts characters into tokens.
+3. `parser.c` and the supporting parser modules build the abstract syntax tree (AST).
+4. `visitor.c` evaluates the AST.
+5. `scope.c` stores variables and function, construct, and namespace definitions.
+6. `value.c` represents runtime values and manages their allocations.
+7. `diagnostic.c` formats and prints structured diagnostics.
 
-The lexer recognizes syntax, the parser builds structure, the AST
-retains the parsed information, scopes resolve names, values represent
-runtime data, and the visitor executes the program.
+The lexer recognizes tokens, the parser validates syntax and constructs the AST, scopes resolve names, values represent runtime data, and the visitor executes the program.
+
+Parser diagnostics include a source filename, line, column, category, error code, and message. The shared diagnostic infrastructure is intended to provide consistent reporting across the lexer, parser, and runtime.
 
 ## 2. Language syntax
 
 ### Declarations and types
 
-``` dara
+```dara
 int amount = 10;
 float speed = 30.0;
 string greeting = "hello";
@@ -35,29 +33,58 @@ func addInt(int a, int b) -> int {
 };
 ```
 
-Parameters have an explicit type. `auto` is a generic parameter type;
-`var` is accepted as an alias for `auto` in parameter declarations.
-Function return types follow `->`; `noval` represents a function with no
-useful return value. Construct names can be parameter types, including
-qualified names where supported by the parser.
+Variables can be declared with explicit types or `auto`. The `var` keyword is accepted as an alias for `auto` in supported declaration contexts.
+
+Function parameters have explicit types. A parameter can use a built-in type or a construct type where supported. Function return types follow `->`; `noval` represents a function that returns no useful value.
+
+For example:
+
+```dara
+auto inferred = 42;
+
+func printMessage(string message) -> noval {
+    print(message);
+};
+```
+
+An `auto` variable needs an initializer so that its type can be inferred. Declaring an uninitialized `auto` variable produces runtime diagnostic `E2001`.
+
+The runtime currently stores numeric values using a `double` representation. `int` and `float` are declaration/type names, not separate underlying numeric storage representations. Do not assume that all conversions or type-validation rules are complete.
 
 ### Control flow and expressions
 
-Implemented syntax includes `return`, `for` loops, parenthesized
-expressions, arithmetic (`+`, `-`, `*`, `/`), numeric comparisons (`==`,
-`!=`, `<`, `<=`, `>`, `>=`), and boolean negation (`!`). Boolean
-literals are `true` and `false`. Statements are separated with
-semicolons.
+Implemented syntax includes:
 
-The language currently treats numeric runtime values as one number
-representation backed by `double`; `int` and `float` are
-declaration/type names rather than distinct underlying numeric storage
-types. Confirm exact coercion and validation behavior before relying on
-conversions.
+- `if` statements.
+- `while` loops.
+- `for` loops.
+- `return` statements.
+- Parenthesized expressions.
+- Arithmetic: `+`, `-`, `*`, `/`.
+- Comparisons: `==`, `!=`, `<`, `<=`, `>`, `>=`.
+- Boolean negation: `!`.
+- Boolean literals: `true`, `false`.
+- Assignment: `=`, `+=`, `-=`.
+- Function calls and member access.
+
+Statements are separated with semicolons. Blocks use braces.
+
+```dara
+int value = 10;
+value += 5;
+
+if (value > 10) {
+    print(value);
+};
+```
+
+Exact evaluation and coercion rules should be verified before relying on behavior outside the tested examples.
 
 ### Constructs and fields
 
-``` dara
+Constructs define structured values with fields and methods.
+
+```dara
 construct Stats {
     int score;
 };
@@ -73,183 +100,212 @@ Player player = construct Player(
 print(player.stats.score);
 ```
 
-A construct declaration defines fields and methods.
-`construct Name(.field = expression, ...)` creates an instance using
-named initializers. Member access can be chained (`player.stats.score`).
-Construct methods are declared inside the construct and called using
-qualified syntax such as `Player.method(player)`; the instance is passed
-explicitly rather than through implicit `this`/`self`.
+A construct declaration uses `construct Name { ... }`. Instances can be created using `construct Name(...)`, with named initializers written as `.field = expression`.
 
-### Namespaces and qualified calls
+Member access can be chained, allowing access to nested fields:
 
-``` dara
-namespace std {
-    construct math {
-        func addInt(int a, int b) -> int {
-            return a + b;
+```dara
+player.stats.score = 20;
+print(player.stats.score);
+```
+
+Construct definitions can include methods. Methods are invoked through the supported construct-qualified method syntax. The receiver is passed explicitly rather than through an implicit `this` or `self` variable.
+
+```dara
+construct Player {
+    int health;
+
+    func report(Player& player) -> noval {
+        print(player.health);
+    };
+};
+
+Player player = construct Player(.health = 100);
+Player.report(player);
+```
+
+Use the syntax supported by the current parser and method-resolution implementation; do not assume that every possible instance-method syntax is available.
+
+### Namespaces and qualified names
+
+Namespaces group declarations under a named scope.
+
+```dara
+namespace io {
+    namespace debug {
+        func printMessage() -> noval {
+            print("debug");
         };
     };
 };
 
-std:math.addInt(40, 40);
+io:debug:printMessage();
 ```
 
-Namespaces group declarations. A qualified path uses `:` between
-namespace/construct components and `.` to select a method. For example,
-the current standard-library experiment groups helpers under `std:io`,
-`std:math`, and `std:string`.
+Qualified names use `:` between namespace or qualified-name components. A dot is used for member access and supported method selection.
+
+A namespace can contain functions, constructs, and nested namespaces where supported by the parser.
+
+The standard-library namespace experiment includes helpers grouped under names such as `std:io`, `std:math`, and `std:string`. This is still experimental and should not be treated as a complete standard library.
+
+A qualified construct method call can use syntax such as:
+
+```dara
+Player.report(player);
+```
+
+The exact resolution path depends on whether the qualified name refers to a function, construct, or construct method.
 
 ### Reference parameters
 
-A parameter type followed by `&` declares a reference parameter:
+Append `&` to a parameter's type to declare a reference parameter.
 
-``` dara
+```dara
 func setScore(int& score) -> noval {
     score = 99;
 };
 
-setScore(player.stats.score);
+int score = 10;
+setScore(score);
+print(score);
 ```
 
-A reference parameter aliases an existing assignable value. Supported
-reference targets include variables and member-access expressions,
-including nested fields. Temporary expressions are not valid reference
-arguments. Construct references and method reference parameters are
-supported as well.
+A reference parameter aliases an existing assignable value. Supported targets include variables and member-access expressions, including nested fields. Temporary expressions are not valid reference arguments.
 
-Ordinary parameters use value semantics: the argument is evaluated and
-stored as a separate value. Reference parameters borrow the caller's
-value instead. Whole-value assignment through a reference updates the
-existing referenced value in place so that the reference does not
-accidentally rebind its local parameter or free caller-owned storage.
+Reference parameters are borrowed aliases, not independently owned values. Assigning through a reference updates the caller's existing value.
+
+Ordinary parameters use value semantics: the argument is evaluated and stored as a separate value. Mutating a copied parameter should not mutate the caller's value.
+
+Whole-value assignment through a reference must preserve the destination's address. It should replace the contents of the referenced value rather than rebinding the parameter or freeing caller-owned storage.
+
+Example:
+
+```dara
+construct Player {
+    int x;
+};
+
+Player first = construct Player(.x = 10);
+Player second = construct Player(.x = 20);
+
+func replacePlayer(Player& p, Player other) -> noval {
+    p = other;
+};
+
+replacePlayer(first, second);
+
+print(first.x);
+print(second.x);
+```
+
+After the call, `first` has the replacement value, while `second` remains an independent value.
 
 ## 3. Keyword and token inventory
 
-  -----------------------------------------------------------------------
-  Word or token                       Meaning
-  ----------------------------------- -----------------------------------
-  `namespace`                         Namespace declaration
+| Word or token | Meaning |
+|---|---|
+| `namespace` | Namespace declaration |
+| `construct` | Construct declaration or instance creation |
+| `func` | Function or method declaration |
+| `return` | Return from a function |
+| `if` | Conditional statement |
+| `while` | While loop |
+| `for` | For loop |
+| `true`, `false` | Boolean literals |
+| `int`, `float`, `string`, `bool` | Type names |
+| `auto`, `var` | Generic/inferred type; `var` aliases `auto` in supported contexts |
+| `noval` | No-value return type |
+| `->` | Introduces a function return type |
+| `&` | Reference parameter marker |
+| `:` | Qualified-name separator |
+| `.` | Member access or named initializer |
+| `=`, `+=`, `-=` | Assignment operators |
+| `+`, `-`, `*`, `/` | Arithmetic operators |
+| `==`, `!=`, `<`, `<=`, `>`, `>=` | Comparison operators |
+| `!` | Boolean negation |
+| `(`, `)` | Expression grouping and argument lists |
+| `{`, `}` | Blocks |
+| `,` | Argument and initializer separator |
+| `;` | Statement terminator |
 
-  `construct`                         Construct declaration or construct
-                                      instantiation introducer
+Keywords are generally recognized by the parser from identifier tokens rather than requiring a dedicated lexer token for every word. This table describes the language-facing inventory, not the internal token representation.
 
-  `func`                              Function/method declaration
+## 4. Diagnostics and error reporting
 
-  `return`                            Return from a function
+Dara has a shared diagnostic representation defined by the diagnostic and source-location headers.
 
-  `for`                               Loop statement
+Parser diagnostics are reported through `parserReportError()`. The reporter creates a diagnostic with a category, code, message, and source location, then prints it using the shared diagnostic formatter.
 
-  `true`, `false`                     Boolean literals
+Example output:
 
-  `int`, `float`, `string`, `bool`    Type names
+```text
+examples/test.dara:1:4: Syntax Error[E1103]: Invalid assignment target.
+```
 
-  `auto`, `var`                       Generic parameter type (`var`
-                                      aliases `auto` in parameter
-                                      declarations)
+The output identifies:
 
-  `noval`                             No-value return type
+- The source file.
+- The line and column.
+- The diagnostic category.
+- The stable error code.
+- A human-readable explanation.
 
-  `->`                                Separates a function's parameter
-                                      list/body declaration from its
-                                      return type
+The parser currently uses codes in the `E11xx` range. Runtime diagnostic `E2001` reports an `auto` variable that cannot have its type inferred because it has no initializer.
 
-  `&`                                 Reference parameter marker
+See `ERROR_CODES.md` for the error-code reference. Only codes wired into actual error paths should be considered implemented. Reserved or planned codes should be labelled accordingly.
 
-  `:`                                 Namespace/qualified-name separator
+The diagnostic reporter currently uses the parser's current token location. When an error is detected after consuming an offending token, the location may point to a subsequent token; precise location tracking can be improved separately.
 
-  `.`                                 Member access or named construct
-                                      initializer
+Allocation failures are currently reported separately from the language diagnostic system in some code paths.
 
-  `=`, `+`, `-`, `*`, `/`             Assignment and arithmetic operators
-
-  `==`, `!=`, `<`, `<=`, `>`, `>=`    Comparisons
-
-  `!`                                 Boolean negation
-
-  `(`, `)`, `{`, `}`, `,`, `;`        Grouping, blocks,
-                                      argument/initializer separators,
-                                      statement terminator
-  -----------------------------------------------------------------------
-
-Keywords are generally recognized by the parser from identifier tokens
-rather than requiring a dedicated token for every word. This table is a
-language-facing inventory, not a claim that every word is a reserved
-lexer token.
-
-## 4. Runtime values and ownership
+## 5. Runtime values and ownership
 
 ### Values
 
-The runtime uses tagged `value_T` objects for values such as numbers,
-booleans, strings, null/no-value, and construct-like structured values.
-Numeric storage is currently based on `double`. Strings own their
-character storage. Structured values own their field names and field
-values.
+The runtime uses tagged `value_T` objects for values such as numbers, booleans, strings, no-value results, and structured construct values.
+
+- Numeric values use `double` storage.
+- Strings own their character storage.
+- Construct values contain field names and field values.
+- Variable scopes manage the lifetime of owned variable values.
+- Reference parameters borrow existing values.
 
 ### Ownership rules
 
-These rules are important when modifying the interpreter:
+These rules are important when modifying the interpreter.
 
--   **Owned values:** `scopeAddVariable()` stores an owned value. The
-    variable's scope frees it during normal scope cleanup.
--   **Borrowed references:** `scopeAddReferenceVariable()` stores a
-    non-owning alias and marks `ownsValue` false. Removing the parameter
-    or freeing its scope must not free the referenced value.
--   **Copy semantics:** ordinary parameter binding evaluates/copies the
-    argument into the call's local variable. Mutating that parameter
-    should not mutate the caller's variable.
--   **Borrowed member access:** resolving a field returns a pointer into
-    the containing construct. It is not an independent allocation and
-    must not be freed separately.
--   **Replacement:** replacing an owned variable can free its old value
-    and adopt the new one. Replacing a value through a reference must
-    preserve the destination address, free the destination's old
-    contents, move/copy the source contents into that storage, and free
-    the source wrapper once.
--   **Single ownership:** each heap allocation must have one clear
-    owner. Avoid freeing borrowed pointers, freeing the same allocation
-    twice, or keeping pointers to values that have been freed.
+- **Owned values:** `scopeAddVariable()` stores an owned value. The owning scope is responsible for releasing it during cleanup.
+- **Borrowed references:** `scopeAddReferenceVariable()` stores a non-owning alias and marks `ownsValue` false. Cleaning up the reference parameter must not free the referenced value.
+- **Copy semantics:** ordinary parameter binding evaluates or copies the argument into the callee's local storage. Changes to the copy should not affect the caller's variable.
+- **Borrowed member access:** resolving a field can return a pointer into a containing construct. It is not an independent allocation and must not be freed separately.
+- **Replacement:** replacing an owned value may free the old value and adopt the replacement. Replacing a value through a reference must preserve the destination address and correctly transfer or copy the replacement contents.
+- **Single ownership:** every heap allocation must have one clear owner. Avoid freeing borrowed pointers, freeing an allocation twice, or retaining pointers to freed values.
 
-`valueFree()` releases a value and its owned contents. `valueReplace()`
-replaces the contents of an existing value while preserving its address;
-it is used when whole-value assignment targets a reference parameter.
-When changing these functions, test nested constructs, strings, copies,
-and reference assignment under Valgrind.
+`valueFree()` releases a value and its owned contents. `valueReplace()` replaces the contents of an existing value while preserving its address; it is used for whole-value assignment through reference parameters.
 
-## 5. Implementation map
+When modifying value replacement, reference binding, or construct fields, test nested constructs, strings, ordinary copies, and reference assignment under Valgrind.
 
-  -----------------------------------------------------------------------
-  File                                Responsibility
-  ----------------------------------- -----------------------------------
-  `io.c`                              Read source files
+## 6. Implementation map
 
-  `lexer.c`, `token.c`                Tokenize source and manage tokens
+| File or component | Responsibility |
+|---|---|
+| `io.c` | Read source files |
+| `lexer.c`, `token.c` | Tokenize source and manage tokens |
+| `parser.c` and `parser_*.c` | Parse tokens into AST nodes and report syntax diagnostics |
+| `ast.c` | Initialize and free AST nodes and child allocations |
+| `scope.c` | Store variables, ownership flags, and definitions |
+| `value.c` | Create, copy, replace, and release runtime values |
+| `visitor.c` and `visitor_*.c` | Evaluate AST nodes, bind arguments, resolve member access, and perform assignments |
+| `diagnostic.c` | Format and print diagnostics |
+| `source.h`, `diagnostic.h` | Define source locations and diagnostic structures |
 
-  `parser.c`                          Parse tokens into AST nodes
+When adding a feature, update each relevant layer deliberately: tokenization if necessary, AST representation, parser, visitor/runtime behavior, memory cleanup, and tests.
 
-  `ast.c`                             Initialize and free AST nodes and
-                                      child allocations
+## 7. Examples
 
-  `scope.c`                           Store variables, ownership flags,
-                                      and definitions
+### Namespace helpers and typed return values
 
-  `value.c`                           Runtime value creation, copying,
-                                      replacement, and cleanup
-
-  `visitor.c`                         Evaluate AST nodes, bind arguments,
-                                      resolve member access and
-                                      assignments
-  -----------------------------------------------------------------------
-
-When adding a feature, update each relevant layer deliberately:
-tokenization (if needed), AST representation, parser, visitor/runtime
-behavior, cleanup, and tests.
-
-## 6. Verified examples
-
-### Generic printing and typed return values
-
-``` dara
+```dara
 namespace std {
     construct io {
         func print(auto value) -> noval {
@@ -275,15 +331,17 @@ std:io.print(std:math.addFloat(30.0, 30.0));
 
 Expected output:
 
-``` text
+```text
 Hello World!
 80
 60
 ```
 
+This example assumes the standard-library wrapper definitions are available in the current interpreter configuration.
+
 ### References to nested fields
 
-``` dara
+```dara
 construct Stats {
     int score;
 };
@@ -306,13 +364,13 @@ print(player.stats.score);
 
 Expected output:
 
-``` text
+```text
 99
 ```
 
-### Reference assignment and value-copy behavior
+### Reference assignment and value copies
 
-``` dara
+```dara
 construct Player {
     int x;
 };
@@ -325,39 +383,35 @@ func replacePlayer(Player& p, Player other) -> noval {
 };
 
 replacePlayer(first, second);
+
 print(first.x);
 print(second.x);
 ```
 
-The reference parameter allows `first` to be replaced in place; `second`
-remains its own value.
+The reference parameter updates `first` in place. `second` remains a separate value.
 
-## 7. Known limitations and future work
+## 8. Known limitations and future work
 
-The following are not documented as implemented language guarantees
-unless verified separately:
+The following should not be assumed to be implemented language guarantees without separate verification:
 
--   `std:string.concat()` is still a placeholder.
--   A full import/module loader and native C-library binding system are
-    future work.
--   `@private` access enforcement and restrictions on external field
-    mutation still need implementation/verification.
--   Do not assume recursion is safe until function-call environments are
-    isolated per call.
--   String escape sequences, richer diagnostics, and full type/coercion
-    rules need explicit tests/documentation.
--   A language-level `typecheck()` built-in has been discussed but
-    should not be considered available until implemented.
--   The current standard-library namespace is experimental and wraps
-    existing built-ins; it is not yet a complete standard library.
+- `std:string.concat()` is still a placeholder.
+- A full import/module loader and native C-library binding system remain future work.
+- `@private` access enforcement and restrictions on external field mutation need implementation or verification.
+- Recursion and function-call environment isolation need explicit testing.
+- String escape sequences, richer source-location tracking, and complete type/coercion rules need explicit tests.
+- A language-level `typecheck()` built-in should not be considered available until implemented.
+- The standard-library namespace is experimental and is not yet a complete standard library.
+- Not every parser, lexer, and runtime failure necessarily uses the shared diagnostic system yet.
 
-## 8. Development checklist
+## 9. Development checklist
 
 For each language change:
 
-1.  Write one valid example and one invalid example.
-2.  Add or update token and AST support as needed.
-3.  Implement parsing and runtime behavior.
-4.  Update AST/value/scope cleanup for any new allocations or aliases.
-5.  Test nested constructs, references, and value copies when relevant.
-6.  Run Valgrind after ownership changes.
+1. Write one valid example and one invalid example.
+2. Add or update token and AST support as needed.
+3. Implement parsing and runtime behavior.
+4. Update AST, value, and scope cleanup for new allocations or aliases.
+5. Test nested constructs, references, and value copies when relevant.
+6. Add or update diagnostic codes and their tests.
+7. Run Valgrind after ownership changes.
+8. Update this document and `README.md` when language behavior changes.

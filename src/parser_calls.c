@@ -22,11 +22,7 @@
  
  char* parserParseQualifiedFunctionName(parser_T* parser) {
     if (parser->currentToken->type != TOKEN_ID) {
-        parserReportError(
-			parser,
-			"E1106",
-			"Expected a function name."
-		);
+        parserReportError(parser, "E1106", "Expected a function name.");
 		exit(EXIT_FAILURE);
     }
 
@@ -45,11 +41,7 @@
         parserEat(parser, TOKEN_COLON);
 
         if (parser->currentToken->type != TOKEN_ID) {
-            parserReportError(
-				parser,
-				"E1107",
-				"Expected an identifier after ':'."
-			);
+            parserReportError(parser, "E1107", "Expected an identifier after ':'.");
 			free(name);
 			exit(EXIT_FAILURE);
         }

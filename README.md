@@ -1,21 +1,47 @@
-# Dara
+# Dara v0.1
 
-Dara is a small interpreted programming language implemented in C. It is
-being developed around explicit types, constructs, functions,
-namespaces, and predictable value ownership.
+Dara is a small interpreted programming language implemented in C. It is being developed around explicit types, constructs, functions, namespaces, reference parameters, and predictable runtime value ownership.
 
-## Run
+The project is actively evolving. This README describes the current development state, not a guarantee that every planned language feature is available.
 
-Build Dara using the project's build instructions, then run a source
-file:
+## Features
 
-``` sh
+- Typed variable declarations with `int`, `float`, `string`, and `bool`.
+- `auto` declarations with type inference from an initializer.
+- Functions with typed parameters and return types.
+- `noval` for functions that return no useful value.
+- `if`, `while`, and `for` control flow.
+- Arithmetic, comparisons, boolean negation, and assignment operators.
+- Constructs with fields, named initializers, and methods.
+- Nested member access, such as `player.stats.score`.
+- Namespaces and qualified names.
+- Reference parameters using `&`, including references to nested fields.
+- A shared diagnostic system being integrated across parser and runtime code.
+
+## Build and run
+
+Build the interpreter using the project's Makefile:
+
+```sh
+make
+```
+
+Run a Dara source file:
+
+```sh
 ./dara.out examples/print.dara
+```
+
+If the project provides a clean target, a clean rebuild can be performed with:
+
+```sh
+make clean
+make
 ```
 
 ## Example
 
-``` dara
+```dara
 namespace std {
     construct io {
         func print(auto value) -> noval {
@@ -34,35 +60,20 @@ std:io.print("Hello World!");
 std:io.print(std:math.addInt(40, 40));
 ```
 
-Output:
+Expected output:
 
-``` text
+```text
 Hello World!
 80
 ```
 
-## Language reference
+This example assumes the standard-library wrapper definitions are available in the current interpreter configuration.
 
-### Keywords and built-in type names
+## Language overview
 
-The language currently uses these declaration/control words:
+### Variables and functions
 
--   `namespace` --- groups declarations under a qualified name.
--   `construct` --- declares a construct with fields and methods.
--   `func` --- declares a function or construct method.
--   `return` --- returns a value from a function.
--   `for` --- loop statement.
--   `var` --- alias for the generic parameter type `auto` in parameter
-    declarations.
--   `true`, `false` --- boolean literals.
-
-Types used in declarations include `int`, `float`, `string`, `bool`,
-`auto`, and `noval` (the no-value return type). Construct names can also
-be used as types, including qualified names such as `game:Player`.
-
-### Values, declarations, and calls
-
-``` dara
+```dara
 int count = 10;
 float speed = 30.0;
 string name = "Dara";
@@ -75,13 +86,15 @@ func add(int a, int b) -> int {
 int result = add(20, 22);
 ```
 
-Functions declare parameter types and a return type after `->`. `auto`
-accepts a value without a specific parameter type. A function that
-returns no useful value declares `-> noval`.
+Function parameters have explicit types. Return types follow `->`. Use `noval` for a function that returns no useful value.
 
-### Constructs and namespaces
+`auto` infers a variable's type from its initializer. An `auto` variable without an initializer currently produces runtime diagnostic `E2001`.
 
-``` dara
+`var` is accepted as an alias for `auto` in supported declaration contexts.
+
+### Constructs and member access
+
+```dara
 construct Stats {
     int score;
 };
@@ -97,60 +110,91 @@ Player player = construct Player(
 print(player.stats.score);
 ```
 
-Fields are initialized with named `.field = expression` entries. Fields
-can be read through member access (`player.stats.score`). Construct
-methods are declared with `func` inside the construct and called with
-qualified syntax such as `Player.method(player)`. Namespaces use
-`namespace name { ... }`; qualified names use `:` (for example,
-`std:math.addInt(...)`).
+Constructs define structured values. Instances use named initializers, and nested fields can be accessed or assigned through member expressions.
 
-### References
+Construct methods are declared with `func` inside a construct. Supported qualified method calls pass the instance explicitly rather than relying on an implicit `this` or `self`.
 
-Append `&` to a parameter's type to bind it to an existing value instead
-of making a value copy:
+### Namespaces and qualified names
 
-``` dara
+```dara
+namespace io {
+    namespace debug {
+        func printMessage() -> noval {
+            print("debug");
+        };
+    };
+};
+
+io:debug:printMessage();
+```
+
+Namespaces group declarations. The `:` separator is used in qualified names; `.` is used for member access and supported method selection.
+
+### Reference parameters
+
+Append `&` to a parameter's type to borrow an existing assignable value:
+
+```dara
 func setScore(int& score) -> noval {
     score = 99;
 };
 
-setScore(player.stats.score);
+int score = 10;
+setScore(score);
+print(score);
 ```
 
-A reference argument must be an assignable location, such as a variable
-or member access---not a temporary expression. Ordinary parameters use
-value semantics; modifying a copied parameter does not modify the
-caller's value. Assigning a whole value through a reference updates the
-referenced value rather than rebinding the local parameter.
+Reference arguments can include supported variables and member-access expressions. They cannot be arbitrary temporary expressions.
+
+Ordinary parameters use value semantics. Reference parameters alias existing values and must not free the referenced storage when the call's local scope is destroyed.
 
 ### Operators and statements
 
-The implemented expression syntax includes arithmetic (`+`, `-`, `*`,
-`/`), numeric comparisons (`==`, `!=`, `<`, `<=`, `>`, `>=`), and
-boolean negation (`!`). Parentheses can group expressions. Statements
-are separated by semicolons; function and construct declarations use
-braces and are commonly followed by `;`.
+The current expression syntax includes:
 
-## Runtime and ownership
+- Arithmetic: `+`, `-`, `*`, `/`
+- Comparisons: `==`, `!=`, `<`, `<=`, `>`, `>=`
+- Boolean negation: `!`
+- Assignment: `=`, `+=`, `-=`
 
--   Variables own their stored values unless the variable is explicitly
-    a reference parameter.
--   Reference parameters borrow an existing value and do not free it
-    when the call's parameter scope is cleaned up.
--   Ordinary parameters receive evaluated values (currently with
-    value/copy semantics).
--   Construct values contain their field values; replacing a field or
-    value must free the old owned value exactly once.
--   A member-access lookup can produce a borrowed pointer into a
-    construct. Borrowed values must not be freed as if they were
-    independent allocations.
--   The interpreter is written in C and uses explicit
-    allocation/freeing. Run tests under Valgrind when changing ownership
-    or assignment behavior.
+Statements are separated with semicolons. Blocks use braces.
 
-## Current scope
+## Diagnostics
 
-Dara is actively evolving. This README documents the implemented
-features verified during development; it is not a promise that every
-planned language feature (such as imports, native-library loading, or
-private-method enforcement) is available.
+Dara's shared diagnostic infrastructure is designed to report the filename, line, column, category, code, and message.
+
+Example:
+
+```text
+examples/test.dara:1:4: Syntax Error[E1103]: Invalid assignment target.
+```
+
+Parser errors use codes in the `E11xx` range. Runtime error `E2001` currently identifies an `auto` variable that cannot infer its type because it has no initializer.
+
+See [`ERROR_CODES.md`](ERROR_CODES.md) for the diagnostic reference and the current status of individual error codes.
+
+Some allocation failures and other error paths have not yet been migrated to the shared diagnostic system.
+
+## Runtime and memory ownership
+
+Dara is implemented in C and manages runtime memory explicitly.
+
+- Ordinary variables own their stored values.
+- Reference parameters borrow an existing value and must not free it during scope cleanup.
+- Ordinary function parameters receive value copies.
+- Member access can produce borrowed pointers into a containing construct.
+- Replacing a value must release old owned contents exactly once while preserving the destination address when assignment occurs through a reference.
+
+When changing reference handling, construct assignment, or value ownership, test nested constructs, strings, value copies, and reference assignment under Valgrind.
+
+## Project documentation
+
+- `DOCS.md` — language behavior, runtime design, ownership rules, examples, and limitations.
+- `ERROR_CODES.md` — diagnostic code reference.
+- `examples/` — Dara source examples and test programs.
+
+## Current limitations
+
+Dara is under active development. Imports, native-library loading, complete private-member enforcement, a full standard library, and comprehensive type/coercion rules should not be assumed available. Some features require additional testing before they can be treated as stable language guarantees.
+
+Contributions and language changes should include valid and invalid examples, appropriate memory-cleanup changes, diagnostic updates, and tests.
