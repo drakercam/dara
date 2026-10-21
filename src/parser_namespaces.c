@@ -26,9 +26,9 @@ ast_T* parserParseNamespaceDefinition(parser_T* parser, scope_T* scope) {
     parserEat(parser, TOKEN_ID); // namespace keyword
 
     if (parser->currentToken->type != TOKEN_ID) {
-        printf("Expected namespace name\n");
+		parserReportError(parser, "E1118", "Expected namespace name.");
         astFree(ast);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     ast->namespaceDefinitionName = calloc(
