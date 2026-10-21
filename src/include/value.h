@@ -19,7 +19,8 @@ struct VALUE_STRUCT {
 		VALUE_FLOAT,
 		VALUE_STRING,
 		VALUE_BOOLEAN,
-		VALUE_CONSTRUCT
+		VALUE_CONSTRUCT,
+		VALUE_COLOR
 		
 	} type;
 	
@@ -35,6 +36,13 @@ struct VALUE_STRUCT {
 			size_t fieldsSize;
 			
 		} constructValue;
+		
+		struct {
+			unsigned char r;
+			unsigned char g;
+			unsigned char b;
+			unsigned char a;
+		} colorValue;
 	};
 };
 
@@ -45,6 +53,7 @@ value_T* valueInitInt(int number);
 value_T* valueInitFloat(double number);
 value_T* valueInitString(const char* string);
 value_T* valueInitBoolean(bool boolean);
+value_T* valueInitColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 
 value_T* valueInitConstruct(const char* name);
 

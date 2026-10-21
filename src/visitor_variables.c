@@ -2,6 +2,7 @@
 #include "include/scope.h"
 #include "include/value.h"
 #include "include/token.h"
+#include "include/builtin_functions.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -127,8 +128,17 @@ value_T* visitorVisitVariable(visitor_T* visitor, ast_T* node) {
 		return valueCopy(var->value);
 	}
 	
-	printf("Undefined variable '%s'\n", node->variableName);
-	exit(1);
+	value_T* constant = builtinRaylibGetConstant(node->variableName);
+	
+	if (constant != (void*)0) {
+		return constant;
+	}
+	
+	printf(
+		"Runtime Error[E2002]: Undefined variable '%s'\n",
+		node->variableName
+	);
+	exit(EXIT_FAILURE);
 }
 
 /*

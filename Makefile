@@ -5,14 +5,15 @@ SRCS = $(wildcard src/*.c)
 OBJS = $(SRCS:.c=.o)
 
 FLAGS = -g
-CFLAGS = -std=c99 -Iinclude -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+CFLAGS = -std=c99
+LIBS = -Iinclude -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
 .PHONY: all install clean
 
 all: $(EXEC)
 
 $(EXEC): $(OBJS)
-	$(CC) $(OBJS) $(FLAGS) -o $@
+	$(CC) $(OBJS) $(FLAGS) -o $@ $(LIBS)
 
 src/%.o: src/%.c
 	$(CC) $(CFLAGS) $(FLAGS) -c $< -o $@

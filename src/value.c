@@ -1,4 +1,5 @@
 #include "include/value.h"
+#include "include/builtin_functions.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -18,6 +19,7 @@ static void valueFreeContents(value_T* value) {
         case VALUE_INT:
         case VALUE_FLOAT:
         case VALUE_BOOLEAN:
+        case VALUE_COLOR:
             break;
 
         case VALUE_STRING:
@@ -99,6 +101,17 @@ value_T* valueInitBoolean(bool boolean) {
 	value->booleanValue = boolean;
 	
 	return value;
+}
+
+value_T* valueInitColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+	value_T* value = valueInit(VALUE_COLOR);
+
+    value->colorValue.r = r;
+    value->colorValue.g = g;
+    value->colorValue.b = b;
+    value->colorValue.a = a;
+
+    return value;
 }
 
 value_T* valueInitConstruct(const char* name) {
@@ -207,6 +220,9 @@ value_T* valueCopy(const value_T* value) {
 
 			return copy;
 		}
+		
+		case VALUE_COLOR:
+			return valueInitColor(value->colorValue.r, value->colorValue.g, value->colorValue.b, value->colorValue.a);
 	}
 	
 	return (void*)0;

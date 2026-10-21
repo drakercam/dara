@@ -156,6 +156,64 @@ Player.report(player);
 
 The exact resolution path depends on whether the qualified name refers to a function, construct, or construct method.
 
+### Native Raylib bindings
+
+Dara currently exposes a small set of Raylib graphics functions through the `rl:` qualified-name prefix. These are native C builtins dispatched by the interpreter rather than functions defined in Dara source.
+
+Implemented functions:
+
+| Function | Purpose |
+|---|---|
+| `rl:InitWindow(width, height, title)` | Creates a window. |
+| `rl:WindowShouldClose()` | Returns whether the window should close. |
+| `rl:BeginDrawing()` | Begins a drawing frame. |
+| `rl:EndDrawing()` | Finishes the drawing frame. |
+| `rl:CloseWindow()` | Closes the window and releases its resources. |
+| `rl:ClearBackground(color)` | Clears the frame to the specified color. |
+| `rl:DrawRectangle(x, y, width, height, color)` | Draws a filled rectangle. |
+
+The runtime also exposes these color constants:
+
+- `rl:WHITE`
+- `rl:BLACK`
+- `rl:RED`
+- `rl:GREEN`
+- `rl:BLUE`
+
+Color constants evaluate to the runtime's `VALUE_COLOR` type. A color stores four unsigned 8-bit components: red, green, blue, and alpha. Raylib builtins convert this value into Raylib's native `Color` structure when calling the relevant API.
+
+Qualified constants such as `rl:WHITE` are parsed as qualified variable references. Qualified function calls such as `rl:DrawRectangle(...)` are dispatched to their native builtin implementations.
+
+#### Raylib example
+
+```dara
+func main() -> noval {
+    rl:InitWindow(1280, 720, "Dara raylib test");
+
+    while (!rl:WindowShouldClose()) {
+        rl:BeginDrawing();
+
+        rl:ClearBackground(rl:WHITE);
+        rl:DrawRectangle(100, 100, 200, 150, rl:BLUE);
+        rl:DrawRectangle(400, 100, 100, 100, rl:RED);
+        rl:DrawRectangle(100, 300, 400, 50, rl:GREEN);
+
+        rl:EndDrawing();
+    };
+
+    rl:CloseWindow();
+};
+
+main();
+```
+
+Drawing operations should be performed between `rl:BeginDrawing()` and `rl:EndDrawing()`. The example creates a window, clears each frame to white, draws three colored rectangles, and closes the window when the close condition is met.
+
+The current binding set is intentionally small. It is not a general-purpose automatic binding system for arbitrary C libraries. Additional Raylib functions must be implemented and registered with the interpreter.
+
+The availability of Raylib also depends on the build environment providing the Raylib development library and its required platform dependencies.
+
+
 ### Reference parameters
 
 Append `&` to a parameter's type to declare a reference parameter.
