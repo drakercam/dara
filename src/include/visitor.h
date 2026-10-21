@@ -9,6 +9,8 @@ typedef struct VISITOR_STRUCT {
 	bool shouldReturn;
 	ast_T* currentMethod;
 	ast_T* currentConstruct;
+	
+	const char* fileName;
 } visitor_T;
 
 visitor_T* visitorInit();
@@ -20,6 +22,7 @@ value_T* visitorVisitIfStatement(visitor_T* visitor, ast_T* node);
 value_T* visitorVisitWhileLoop(visitor_T* visitor, ast_T* node);
 value_T* visitorVisitForLoop(visitor_T* visitor, ast_T* node);
 bool visitorArgumentMatchesType(ast_T* parameter, value_T* argument);
+void visitorReportDiagnostic(visitor_T* visitor, ast_T* node, const char* code, const char* message);
 
 /*
  * Evaluates a string literal.

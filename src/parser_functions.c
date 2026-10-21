@@ -39,9 +39,9 @@ ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope) {
     if (parser->currentToken->type != TOKEN_RIGHTPAREN) {
         while (1) {
             if (parser->currentToken->type != TOKEN_ID) {
-                printf("Expected parameter type\n");
-                astFree(ast);
-                exit(EXIT_FAILURE);
+                parserReportError(parser, "E1114", "Expected a parameter type.");
+				astFree(ast);
+				exit(EXIT_FAILURE);
             }
 
             char* parameterType = (void*)0;
@@ -88,10 +88,9 @@ ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope) {
 
             // Every parameter must have a type followed by a name.
             if (parser->currentToken->type != TOKEN_ID) {
-                printf("Expected parameter name after type\n");
-                free(parameterType);
-                astFree(ast);
-                exit(EXIT_FAILURE);
+                parserReportError(parser, "E1115", "Expected a parameter name after the type.");
+				astFree(ast);
+				exit(EXIT_FAILURE);
             }
 
             parameterName = calloc(
@@ -148,9 +147,9 @@ ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope) {
 	parserEat(parser, TOKEN_ARROW);
 
 	if (parser->currentToken->type != TOKEN_ID) {
-		printf("Expected function return type after '->'\n");
+		parserReportError(parser, "E1116", "Expected a function return type after '->'.");
 		astFree(ast);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	char* returnType = parser->currentToken->value;
@@ -160,9 +159,18 @@ ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope) {
 		strcmp(returnType, "string") != 0 &&
 		strcmp(returnType, "noval") != 0) {
 
-		printf("Unknown function return type '%s'\n", returnType);
+		char message[256];
+
+		snprintf(
+			message,
+			sizeof(message),
+			"Unknown function return type '%s'.",
+			returnType
+		);
+
+		parserReportError(parser, "E1117", message);
 		astFree(ast);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	ast->functionDefinitionReturnType = calloc(

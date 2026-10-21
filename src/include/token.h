@@ -1,6 +1,8 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
+#include "source.h"
+
 typedef struct TOKEN_STRUCT {
 	enum {
 		TOKEN_ID,
@@ -35,6 +37,7 @@ typedef struct TOKEN_STRUCT {
 	} type;
 	
 	char* value;
+	sourceLocation_T location;
 	
 } token_T;
 

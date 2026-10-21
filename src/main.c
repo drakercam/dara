@@ -22,8 +22,10 @@ int main(int argc, char* argv[]) {
 	);
 
 	parser_T* parser = parserInit(lexer);
+	parser->fileName = argv[1];
 	ast_T* root = parserParse(parser, parser->scope);
 	visitor_T* visitor = visitorInit();
+	visitor->fileName = argv[1];
 
 	value_T* result = visitorVisit(visitor, root);
 	valueFree(result);

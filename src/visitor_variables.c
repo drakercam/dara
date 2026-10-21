@@ -8,13 +8,55 @@
 #include <string.h>
 #include <stdbool.h>
 
+
+/*
+ * Creates the default value for a variable with no initializer.
+ */
+static value_T* visitorCreateDefaultValue(const char* typeName) {
+    if (strcmp(typeName, "int") == 0) {
+        return valueInitInt(0);
+    }
+
+    if (strcmp(typeName, "float") == 0) {
+        return valueInitFloat(0.0);
+    }
+
+    if (strcmp(typeName, "string") == 0) {
+        return valueInitString("");
+    }
+
+    return (void*)0;
+}
+
 /*
  * Evaluates a variable definition, checks its declared type, and
  * registers the variable in its scope.
  */
 
 value_T* visitorVisitVariableDefinition(visitor_T* visitor, ast_T* node) {
-	value_T* value = visitorVisit(visitor, node->variableDefinitionValue);
+	if (node->variableDefinitionValue == (void*)0) {
+        if (strcmp(node->variableDefinitionType, "auto") == 0) {
+            char message[256];
+
+            snprintf(
+                message,
+                sizeof(message),
+                "Cannot infer the type of variable '%s' without an initializer.",
+                node->variableDefinitionVariableName
+            );
+
+            visitorReportDiagnostic(visitor, node, "E2001", message);
+            exit(EXIT_FAILURE);
+        }
+    }
+	
+	value_T* value;
+
+	if (node->variableDefinitionValue != (void*)0) {
+		value = visitorVisit(visitor, node->variableDefinitionValue);
+	} else {
+		value = visitorCreateDefaultValue(node->variableDefinitionType);
+	}
 	
     if (value == (void*)0) {
         printf("Failed to evaluate initializer for variable '%s'\n", node->variableDefinitionVariableName);

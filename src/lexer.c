@@ -7,12 +7,25 @@
 
 #define NEW_LINE 10
 
+static token_T* lexerCreateToken(lexer_T* lexer, int type, char* value, size_t startLine, size_t startColumn, size_t length) {
+	token_T* token = tokenInit(type, value);
+	
+	token->location.line = startLine;
+	token->location.column = startColumn;
+	token->location.length = length;
+	
+	return token;
+}
+
 lexer_T* lexerInit(char* contents) {
 	lexer_T* lexer = calloc(1, sizeof(struct LEXER_STRUCT));
 	
 	lexer->contents = contents;
 	lexer->index = 0;
 	lexer->c = contents[lexer->index];
+	
+	lexer->line = 1;
+	lexer->column = 1;
 	
 	return lexer;
 }
@@ -27,10 +40,21 @@ void lexerFree(lexer_T* lexer) {
 }
 
 void lexerAdvance(lexer_T* lexer) {
-	if (lexer->c != '\0' && lexer->index < strlen(lexer->contents)) {
-		lexer->index += 1;
-		lexer->c = lexer->contents[lexer->index];
-	}
+    if (lexer->c == '\0' ||
+        lexer->index >= strlen(lexer->contents)) {
+        return;
+    }
+
+    if (lexer->c == '\n') {
+        lexer->line++;
+        lexer->column = 1;
+    }
+    else {
+        lexer->column++;
+    }
+
+    lexer->index++;
+    lexer->c = lexer->contents[lexer->index];
 }
 
 void lexerSkipWhitespace(lexer_T* lexer) {
@@ -63,7 +87,6 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 					value[0] = '=';
 					value[1] = '=';
 					
-					lexerAdvance(lexer);
 					return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_EQUAL_EQUAL, value));
 				}
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_EQUALS, lexerGetCurrCharAsStr(lexer)));
@@ -91,9 +114,7 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 					char* value = calloc(3, sizeof(char));
 					value[0] = '+';
 					value[1] = '=';
-					
-					lexerAdvance(lexer);
-					
+										
 					return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_PLUS_EQUAL, value));
 				}
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_PLUS, lexerGetCurrCharAsStr(lexer)));
@@ -103,17 +124,13 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 					char* value = calloc(3, sizeof(char));
 					value[0] = '-';
 					value[1] = '=';
-					
-					lexerAdvance(lexer);
-					
+										
 					return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_MINUS_EQUAL, value));
 				}
 				if (lexer->contents[lexer->index + 1] == '>') {	// arrow operator
 					char* value = calloc(3, sizeof(char));
 					value[0] = '-';
 					value[1] = '>';
-
-					lexerAdvance(lexer);
 
 					return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_ARROW, value));
 				}
@@ -132,7 +149,6 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 					value[0] = '<';
 					value[1] = '=';
 					
-					lexerAdvance(lexer);
 					return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_LESS_THAN_EQUAL, value));
 				}
 			
@@ -144,7 +160,6 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 					value[0] = '>';
 					value[1] = '=';
 					
-					lexerAdvance(lexer);
 					return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_MORE_THAN_EQUAL, value));
 				}
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_MORE, lexerGetCurrCharAsStr(lexer)));
@@ -156,7 +171,6 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 					value[0] = '!';
 					value[1] = '=';
 					
-					lexerAdvance(lexer);
 					return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_NOT_EQUAL, value));
 				}
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_NOT, lexerGetCurrCharAsStr(lexer)));
@@ -188,6 +202,10 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 }
 
 token_T* lexerCollectString(lexer_T* lexer) {
+	size_t startLine = lexer->line;
+	size_t startColumn = lexer->column;
+	size_t startIndex = lexer->index;
+	
 	lexerAdvance(lexer);	// skip the quotes we are encountering
 	
 	char* value = calloc(1, sizeof(char));
@@ -204,10 +222,14 @@ token_T* lexerCollectString(lexer_T* lexer) {
 	
 	lexerAdvance(lexer);    // skip closing quote
 		
-	return tokenInit(TOKEN_STRING, value);
+	return lexerCreateToken(lexer, TOKEN_STRING, value, startLine, startColumn, lexer->index - startIndex);
 }
 
 token_T* lexerCollectNumber(lexer_T* lexer) {
+	size_t startLine = lexer->line;
+	size_t startColumn = lexer->column;
+	size_t startIndex = lexer->index;
+	
 	char* value = calloc(1, sizeof(char));
     value[0] = '\0';
     
@@ -228,10 +250,14 @@ token_T* lexerCollectNumber(lexer_T* lexer) {
         lexerAdvance(lexer);
     }
 
-    return tokenInit(TOKEN_NUMBER, value);
+	return lexerCreateToken(lexer, TOKEN_NUMBER, value, startLine, startColumn, lexer->index - startIndex);
 }
 
 token_T* lexerCollectID(lexer_T* lexer) {	
+	size_t startLine = lexer->line;
+	size_t startColumn = lexer->column;
+	size_t startIndex = lexer->index;
+	
 	char* value = calloc(1, sizeof(char));
 	value[0] = '\0';
 	
@@ -244,13 +270,21 @@ token_T* lexerCollectID(lexer_T* lexer) {
 		lexerAdvance(lexer);
 	}
 		
-	return tokenInit(TOKEN_ID, value);
+	return lexerCreateToken(lexer, TOKEN_ID, value, startLine, startColumn, lexer->index - startIndex);
 }
 
 token_T* lexerAdvanceWithToken(lexer_T* lexer, token_T* token) {
-	lexerAdvance(lexer);
-	
-	return token;
+    token->location.line = lexer->line;
+    token->location.column = lexer->column;
+    token->location.length = strlen(token->value);
+
+    size_t length = token->location.length;
+
+    for (size_t i = 0; i < length; i++) {
+        lexerAdvance(lexer);
+    }
+
+    return token;
 }
 
 char* lexerGetCurrCharAsStr(lexer_T* lexer) {	// for single chars
