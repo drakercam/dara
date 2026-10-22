@@ -213,7 +213,6 @@ The current binding set is intentionally small. It is not a general-purpose auto
 
 The availability of Raylib also depends on the build environment providing the Raylib development library and its required platform dependencies.
 
-
 ### Reference parameters
 
 Append `&` to a parameter's type to declare a reference parameter.
