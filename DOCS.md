@@ -16,11 +16,11 @@ Dara is an interpreted programming language implemented in C.
 
 The lexer recognizes tokens, the parser validates syntax and constructs the AST, scopes resolve names, values represent runtime data, and the visitor executes the program.
 
-Diagnostics include a source filename, line, column, category, error code, and message where supported. The shared diagnostic infrastructure is intended to provide consistent reporting across the lexer, parser, and runtime.
+The shared diagnostic infrastructure supports reporting a source filename, line, column, category, error code, and message. Coverage and location accuracy can vary between individual error paths.
 
 ## 2. Language syntax
 
-### Declarations and types
+### 2.1 Declarations and types
 
 ```dara
 int amount = 10;
@@ -37,19 +37,27 @@ Variables can be declared with explicit types or `auto`. The `var` keyword is ac
 
 Function parameters have explicit types. A parameter can use a built-in type or a construct type where supported. Function return types follow `->`; `noval` represents a function that returns no useful value.
 
+**Function declarations end with a semicolon after the closing brace.**
+
 ```dara
 auto inferred = 42;
 
 func printMessage(string message) -> noval {
     std:print(message);
 };
+
+func main() -> noval {
+    printMessage("Hello, Dara!");
+};
+
+main();
 ```
 
 An `auto` variable needs an initializer so that its type can be inferred. Declaring an uninitialized `auto` variable produces runtime diagnostic `E2001`.
 
 The runtime currently stores numeric values using a `double` representation. `int` and `float` are declaration/type names, not separate underlying numeric storage representations. Do not assume that all conversions or type-validation rules are complete.
 
-### Control flow and expressions
+### 2.2 Control flow and expressions
 
 Implemented syntax includes:
 
@@ -68,17 +76,21 @@ Implemented syntax includes:
 Statements are separated with semicolons. Blocks use braces.
 
 ```dara
-int value = 10;
-value += 5;
+func main() -> noval {
+    int value = 10;
+    value += 5;
 
-if (value > 10) {
-    std:print(value);
+    if (value > 10) {
+        std:print(value);
+    };
 };
+
+main();
 ```
 
 Exact evaluation and coercion rules should be verified before relying on behavior outside tested examples.
 
-### Constructs and fields
+### 2.3 Constructs and fields
 
 Constructs define structured values with fields and methods.
 
@@ -98,7 +110,7 @@ Player player = construct Player(
 std:print(player.stats.score);
 ```
 
-A construct declaration uses `construct Name { ... }`. Instances can be created using `construct Name(...)`, with named initializers written as `.field = expression`.
+A construct declaration uses `construct Name { ... };`. Instances can be created using `construct Name(...)`, with named initializers written as `.field = expression`.
 
 Member access can be chained to access nested fields:
 
@@ -107,7 +119,7 @@ player.stats.score = 20;
 std:print(player.stats.score);
 ```
 
-Construct definitions can include methods. Methods use an explicit receiver argument rather than an implicit `this` or `self` variable.
+Construct definitions can include methods. Methods are invoked using the supported construct-qualified method syntax. The receiver is passed explicitly rather than through an implicit `this` or `self` variable.
 
 ```dara
 construct Player {
@@ -124,7 +136,7 @@ Player.report(player);
 
 Use syntax supported by the current parser and method-resolution implementation; do not assume every possible instance-method syntax is available.
 
-### Namespaces and qualified names
+### 2.4 Namespaces and qualified names
 
 Namespaces group declarations under a named scope.
 
@@ -144,7 +156,7 @@ Qualified names use `:` between namespace or qualified-name components. A dot is
 
 A namespace can contain functions, constructs, and nested namespaces where supported by the parser.
 
-The standard-library namespace experiments include helpers grouped under names such as `std:math` and `std:string`. These remain experimental and should not be treated as a complete standard library. `std:print()` is the standard print builtin used in the examples in this document.
+The standard-library namespace experiments include helpers grouped under names such as `std:math` and `std:string`. These remain experimental and should not be treated as a complete standard library. The print builtin is called directly as `std:print(...)`; examples should not substitute bare `print(...)` or assume a `std:io.print()` wrapper.
 
 A qualified construct method call can use syntax such as:
 
@@ -154,7 +166,24 @@ Player.report(player);
 
 The exact resolution path depends on whether the qualified name refers to a function, construct, or construct method.
 
-### Native Raylib bindings
+### 2.5 Arrays
+
+Dara supports array values and a standard array namespace for creating and querying arrays.
+
+```dara
+array numbers;
+
+numbers = std:array(5) -> int;
+
+std:print(std:array:size(numbers));
+std:print(std:array:capacity(numbers));
+```
+
+The constructor accepts a capacity and an element type. Size represents the number of stored elements, while capacity represents allocated storage.
+
+Array initialization, element types, and available operations should be verified against the current runtime. In particular, do not assume default array initialization is reliable until that path has been tested.
+
+### 2.6 Native Raylib bindings
 
 Dara exposes a small set of Raylib graphics functions through the `rl:` qualified-name prefix. These are native C builtins dispatched by the interpreter rather than functions defined in Dara source.
 
@@ -209,9 +238,9 @@ Drawing operations should be performed between `rl:BeginDrawing()` and `rl:EndDr
 
 The current binding set is intentionally small. It is not a general-purpose automatic binding system for arbitrary C libraries. Additional Raylib functions must be implemented and registered with the interpreter.
 
-Raylib availability depends on the build environment providing the Raylib development library and required platform dependencies.
+Raylib availability depends on the build environment providing the Raylib development library and its required platform dependencies.
 
-### Reference parameters
+### 2.7 Reference parameters
 
 Append `&` to a parameter's type to declare a reference parameter.
 
@@ -220,9 +249,13 @@ func setScore(int& score) -> noval {
     score = 99;
 };
 
-int score = 10;
-setScore(score);
-std:print(score);
+func main() -> noval {
+    int score = 10;
+    setScore(score);
+    std:print(score);
+};
+
+main();
 ```
 
 A reference parameter aliases an existing assignable value. Supported targets include variables and member-access expressions, including nested fields. Temporary expressions are not valid reference arguments.
@@ -252,21 +285,6 @@ std:print(second.x);
 ```
 
 After the call, `first` has the replacement value, while `second` remains an independent value.
-
-### Arrays
-
-Dara provides array values and a standard array namespace for creating and querying arrays.
-
-```dara
-array numbers = std:array(5) -> int;
-
-std:print(std:array:size(numbers));
-std:print(std:array:capacity(numbers));
-```
-
-The constructor accepts a capacity and an element type. Size represents the number of stored elements, while capacity represents allocated storage. The available operations and supported element types depend on the current implementation.
-
-Verify default array initialization and the complete set of array operations against the current runtime before treating every example as a guaranteed behavior.
 
 ## 3. Keyword and token inventory
 
@@ -328,7 +346,7 @@ Allocation failures are reported separately from the language diagnostic system 
 
 ## 5. Runtime values and ownership
 
-### Values
+### 5.1 Values
 
 The runtime uses tagged `value_T` objects for values such as numbers, booleans, strings, arrays, no-value results, and structured construct values.
 
@@ -339,7 +357,7 @@ The runtime uses tagged `value_T` objects for values such as numbers, booleans, 
 - Variable scopes manage the lifetime of owned variable values.
 - Reference parameters borrow existing values.
 
-### Ownership rules
+### 5.2 Ownership rules
 
 These rules are important when modifying the interpreter.
 
@@ -372,11 +390,9 @@ When adding a feature, update each relevant layer deliberately: tokenization if 
 
 ## 7. Examples
 
-### Standard output and typed return values
+### 7.1 Standard output and typed return values
 
 ```dara
-std:print("Hello World!");
-
 func addInt(int a, int b) -> int {
     return a + b;
 };
@@ -385,8 +401,13 @@ func addFloat(float a, float b) -> float {
     return a + b;
 };
 
-std:print(addInt(40, 40));
-std:print(addFloat(30.0, 30.0));
+func main() -> noval {
+    std:print("Hello World!");
+    std:print(addInt(40, 40));
+    std:print(addFloat(30.0, 30.0));
+};
+
+main();
 ```
 
 Expected output:
@@ -397,9 +418,9 @@ Hello World!
 60
 ```
 
-These examples use `std:print()` as the print builtin and assume the shown function syntax is supported by the current interpreter.
+These examples use `std:print()` as the print builtin.
 
-### References to nested fields
+### 7.2 References to nested fields
 
 ```dara
 construct Stats {
@@ -418,8 +439,12 @@ func increaseScore(int& score) -> noval {
     score = 99;
 };
 
-increaseScore(player.stats.score);
-std:print(player.stats.score);
+func main() -> noval {
+    increaseScore(player.stats.score);
+    std:print(player.stats.score);
+};
+
+main();
 ```
 
 Expected output:
@@ -428,7 +453,7 @@ Expected output:
 99
 ```
 
-### Reference assignment and value copies
+### 7.3 Reference assignment and value copies
 
 ```dara
 construct Player {
@@ -442,10 +467,14 @@ func replacePlayer(Player& p, Player other) -> noval {
     p = other;
 };
 
-replacePlayer(first, second);
+func main() -> noval {
+    replacePlayer(first, second);
 
-std:print(first.x);
-std:print(second.x);
+    std:print(first.x);
+    std:print(second.x);
+};
+
+main();
 ```
 
 The reference parameter updates `first` in place. `second` remains a separate value.
