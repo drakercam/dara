@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <limits.h>
 
 /*
  * Registers a function definition in its scope.
@@ -252,6 +253,64 @@ value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node) {
  * and construct context.
  */
 value_T* visitorVisitMethodCall(visitor_T* visitor, ast_T* node) {
+	/*
+	 * 	Handle std library funcs first
+	 */
+	
+	if (strcmp(node->methodCallConstructName, "std:array") == 0) {
+		// dispatch to std:array builtins
+		
+		if (strcmp(node->methodCallName, "size") == 0 ||
+			strcmp(node->methodCallName, "capacity") == 0) {
+				
+			if (node->methodCallArgumentsSize != 1) {
+				visitorReportDiagnostic(visitor, node, "E2005", "Array size and capacity methods expect exactly one argument.");
+				return (void*)0;
+			}
+			
+			value_T* argument = visitorVisit(visitor, node->methodCallArguments[0]);
+			
+			if (!argument) {
+				return (void*)0;
+			}
+			
+			if (argument->type != VALUE_ARRAY || argument->arrayValue == (void*)0) {
+				visitorReportDiagnostic(visitor, node, "E2006", "Array operations requires an array argument.");
+				valueFree(argument);
+				return (void*)0;
+			}
+			
+			size_t resultValue;
+			if (strcmp(node->methodCallName, "size") == 0) {
+				resultValue = argument->arrayValue->size;
+			}
+			else if (strcmp(node->methodCallName, "capacity") == 0) {
+				resultValue = argument->arrayValue->capacity;
+			}
+			else {
+				valueFree(argument);
+				return (void*)0;
+			}
+			
+			valueFree(argument);
+			
+			if (resultValue > (size_t)INT_MAX) {
+				visitorReportDiagnostic(visitor, node, "E2007", "Array result exceeds supported integer range.");
+				return (void*)0;
+			}
+			
+			value_T* result = valueInit(VALUE_INT);
+			result->intValue = (int)resultValue;
+			
+			return result;
+		}	
+		
+		visitorReportDiagnostic(visitor, node, "E2008", "Unknown std:array method");
+	
+		return (void*)0;
+	}
+	
+	
     // 1. Find the construct definition.
     ast_T* construct = scopeGetQualifiedConstructDefinition(
         node->scope,

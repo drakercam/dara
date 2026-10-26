@@ -269,6 +269,7 @@ ast_T* parserParseStatement(parser_T* parser, scope_T* scope) {
             strcmp(value, "float") == 0 ||
             strcmp(value, "string") == 0 ||
             strcmp(value, "func") == 0 ||
+            strcmp(value, "array") == 0 ||
             strcmp(value, "return") == 0
         ) {
             return parserParseID(parser, scope);
@@ -378,14 +379,68 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 
 				// A qualified name followed by '(' is a function call.
 				if (parser->currentToken->type == TOKEN_LEFTPAREN) {
-					ast_T* functionCall = parserParseFunctionCallNamed(parser, scope, qualifiedName);
+					if (strcmp(qualifiedName, "std:array") == 0) {
+						ast_T* arrayConstructor = astInit(AST_ARRAY_CONSTRUCTOR);
+						arrayConstructor->scope = scope;
+						arrayConstructor->location = startLocation;
+
+						parserEat(parser, TOKEN_LEFTPAREN);
+
+						// The capacity is optional. Omitted capacity defaults to 1.
+						if (parser->currentToken->type != TOKEN_RIGHTPAREN) {
+							arrayConstructor->arrayConstructorCapacity =
+								parserParseComparison(parser, scope);
+						}
+
+						parserEat(parser, TOKEN_RIGHTPAREN);
+						parserEat(parser, TOKEN_ARROW);
+
+						if (parser->currentToken->type != TOKEN_ID) {
+							parserReportError(
+								parser,
+								"E1102",
+								"Expected an element type after '->' in array constructor."
+							);
+							free(qualifiedName);
+							astFree(arrayConstructor);
+							exit(EXIT_FAILURE);
+						}
+
+						const char* elementType = parser->currentToken->value;
+
+						arrayConstructor->arrayConstructorElementType = calloc(
+							strlen(elementType) + 1,
+							sizeof(char)
+						);
+
+						if (arrayConstructor->arrayConstructorElementType == (void*)0) {
+							free(qualifiedName);
+							astFree(arrayConstructor);
+							fprintf(stderr, "Failed to allocate array element type.\n");
+							exit(1);
+						}
+
+						strcpy(
+							arrayConstructor->arrayConstructorElementType,
+							elementType
+						);
+
+						parserEat(parser, TOKEN_ID);
+						free(qualifiedName);
+
+						return arrayConstructor;
+					}
+
+					ast_T* functionCall =
+						parserParseFunctionCallNamed(parser, scope, qualifiedName);
 
 					free(qualifiedName);
 					return functionCall;
 				}
 
-				// Otherwise, check whether this is a construct method call.
-				if (scopeGetQualifiedConstructDefinition(scope, qualifiedName) == (void*)0) {
+				bool isBuiltinNamespace = strcmp(qualifiedName, "std:array") == 0;
+
+				if (scopeGetQualifiedConstructDefinition(scope, qualifiedName) == (void*)0 && !isBuiltinNamespace) {
 					ast_T* variable = astInit(AST_VARIABLE);
 					variable->variableName = qualifiedName;
 					variable->scope = scope;
@@ -641,7 +696,8 @@ ast_T* parserParseID(parser_T* parser, scope_T* scope) {
 		strcmp(parser->currentToken->value, "auto") == 0 ||
 		strcmp(parser->currentToken->value, "int") == 0 ||
 		strcmp(parser->currentToken->value, "string") == 0 ||
-		strcmp(parser->currentToken->value, "float") == 0
+		strcmp(parser->currentToken->value, "float") == 0 ||
+		strcmp(parser->currentToken->value, "array") == 0
 	) {
 		return parserParseVariableDefinition(parser, scope);
 	}

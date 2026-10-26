@@ -5,12 +5,22 @@
 #include <stdbool.h>
 
 typedef struct VALUE_STRUCT value_T;
+typedef struct ARRAY_STRUCT array_T;
 
 typedef struct VALUE_FIELD_STRUCT {
 	char* name;
 	value_T* value;
 	
 } valueField_T;
+
+struct ARRAY_STRUCT {
+	value_T** elements;
+	size_t size;
+	size_t capacity;
+	
+	int elementType;
+	char* elementTypeName;
+};
 
 struct VALUE_STRUCT {
 	enum {
@@ -20,7 +30,8 @@ struct VALUE_STRUCT {
 		VALUE_STRING,
 		VALUE_BOOLEAN,
 		VALUE_CONSTRUCT,
-		VALUE_COLOR
+		VALUE_COLOR,
+		VALUE_ARRAY
 		
 	} type;
 	
@@ -29,6 +40,7 @@ struct VALUE_STRUCT {
 		double floatValue;
 		char* stringValue;
 		bool booleanValue;
+		array_T* arrayValue;
 		
 		struct {
 			char* name;
@@ -47,6 +59,7 @@ struct VALUE_STRUCT {
 };
 
 value_T* valueInit(int type);
+void arrayFree(array_T* array);
 void valueFree(value_T* value);
 
 value_T* valueInitInt(int number);

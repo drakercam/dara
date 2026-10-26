@@ -69,6 +69,11 @@ value_T* visitorCreateDefaultConstruct(scope_T* scope, ast_T* definition, const 
 value_T* visitorVisitConstructInstantiation(visitor_T* visitor, ast_T* node);
 
 /*
+ * Creates an array with a specified capacity and element type.
+ */
+value_T* visitorVisitArrayConstructor(visitor_T* visitor, ast_T* node);
+
+/*
  * Evaluates a variable definition and registers the variable.
  */
 value_T* visitorVisitVariableDefinition(visitor_T* visitor, ast_T* node);

@@ -77,10 +77,14 @@ value_T* visitorVisitVariableDefinition(visitor_T* visitor, ast_T* node) {
         exit(1);
     }
     
-    if (strcmp(declaredType, "string") == 0 &&
-		value->type != VALUE_STRING) {
-		printf("Type error: variable '%s' expects string\n",
-			node->variableDefinitionVariableName);
+    if (strcmp(declaredType, "string") == 0 && value->type != VALUE_STRING) {
+		printf("Type error: variable '%s' expects string\n", node->variableDefinitionVariableName);
+		valueFree(value);
+		exit(1);
+	}
+	
+	if (strcmp(declaredType, "array") == 0 && value->type != VALUE_ARRAY) {
+		printf("Type error: variable '%s' expects array\n", node->variableDefinitionVariableName);
 		valueFree(value);
 		exit(1);
 	}
@@ -89,7 +93,8 @@ value_T* visitorVisitVariableDefinition(visitor_T* visitor, ast_T* node) {
 		strcmp(declaredType, "auto") == 0 ||
 		strcmp(declaredType, "int") == 0 ||
 		strcmp(declaredType, "float") == 0 ||
-		strcmp(declaredType, "string") == 0;
+		strcmp(declaredType, "string") == 0 ||
+		strcmp(declaredType, "array") == 0;
 
 	if (!isBuiltinType) {
 		ast_T* constructDefinition =
