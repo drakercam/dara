@@ -60,6 +60,11 @@ ast_T* parserParseStatements(parser_T* parser, scope_T* scope);
 ast_T* parserParseFactor(parser_T* parser, scope_T* scope);
 
 /*
+ * Parses a std:array constructor expression.
+ */
+ast_T* parserParseArrayConstructor(parser_T* parser, scope_T* scope, sourceLocation_T startLocation);
+
+/*
  * Parses addition and subtraction expressions.
  */
 ast_T* parserParseExpression(parser_T* parser, scope_T* scope);

@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	lexer_T* lexer = lexerInit(
-		fileGetContents(argv[1])
+		fileGetContents(argv[1]), argv[1]
 	);
 
 	parser_T* parser = parserInit(lexer);

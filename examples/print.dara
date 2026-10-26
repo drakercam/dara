@@ -1,8 +1,4 @@
-array numbers = std:array(4) -> int;
-array generic = std:array() -> auto;
-
+array numbers;
+numbers = std:array(5) -> auto;
 std:print(std:array.size(numbers));
 std:print(std:array.capacity(numbers));
-
-std:print(std:array.size(generic));
-std:print(std:array.capacity(generic));

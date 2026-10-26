@@ -7,6 +7,15 @@
 #include <stdbool.h>
 
 /*
+ * Removes the variables belonging to a for-loop scope.
+ */
+static void visitorCleanupForLoopScope(scope_T* scope) {
+    if (scope != (void*)0) {
+        scopeRemoveVariables(scope, scope->variablesSize);
+    }
+}
+
+/*
  * Evaluates an if statement, executing its body when the condition is true
  * or its else body when the condition is false.
  */
@@ -14,15 +23,14 @@
  value_T* visitorVisitIfStatement(visitor_T* visitor, ast_T* node) {
     value_T* condition = visitorVisit(visitor, node->ifCondition);
 
-    if (condition == (void*)0) {
-        printf("Failed to evaluate if condition\n");
-        exit(1);
+    if (!condition) {
+        return (void*)0;
     }
 
     if (condition->type != VALUE_BOOLEAN) {
-        printf("If condition must evaluate to a boolean\n");
+        visitorReportDiagnostic(visitor, node->ifCondition, "E2026", "If condition must evaluate to a boolean.");
         valueFree(condition);
-        exit(1);
+        return (void*)0;
     }
 
     bool result = condition->booleanValue;
@@ -48,17 +56,17 @@ value_T* visitorVisitWhileLoop(visitor_T* visitor, ast_T* node) {
             node->whileCondition
         );
 
-        if (condition == (void*)0) {
+        if (!condition) {
             valueFree(result);
-            printf("Failed to evaluate while condition\n");
-            exit(1);
+            return (void*)0;
         }
 
         if (condition->type != VALUE_BOOLEAN) {
+			visitorReportDiagnostic(visitor, node->whileCondition, "E2026", "While condition must evaluate to a boolean.");
+			
             valueFree(condition);
             valueFree(result);
-            printf("While condition must evaluate to a boolean\n");
-            exit(1);
+            return (void*)0;
         }
 
         bool shouldContinue = condition->booleanValue;
@@ -89,31 +97,29 @@ value_T* visitorVisitWhileLoop(visitor_T* visitor, ast_T* node) {
 value_T* visitorVisitForLoop(visitor_T* visitor, ast_T* node) {
     scope_T* loopScope = node->forInitializer->scope;
 
-    value_T* result = visitorVisit(
-        visitor,
-        node->forInitializer
-    );
+    value_T* result = visitorVisit(visitor, node->forInitializer);
+    
+    // Initializers such as variable definitions may return (void*)0 on success.
     valueFree(result);
 
     result = valueInit(VALUE_NULL);
 
     while (true) {
-        value_T* condition = visitorVisit(
-            visitor,
-            node->forCondition
-        );
+        value_T* condition = visitorVisit(visitor, node->forCondition);
 
-        if (condition == (void*)0) {
+        if (!condition) {
             valueFree(result);
-            printf("Failed to evaluate for condition\n");
-            exit(1);
+            visitorCleanupForLoopScope(loopScope);
+            return (void*)0;
         }
 
         if (condition->type != VALUE_BOOLEAN) {
+			visitorReportDiagnostic(visitor, node->forCondition, "E2026", "For condition must evaluate to a boolean.");
+			
             valueFree(condition);
             valueFree(result);
-            printf("For condition must evaluate to a boolean\n");
-            exit(1);
+            visitorCleanupForLoopScope(loopScope);
+            return (void*)0;
         }
 
         bool shouldContinue = condition->booleanValue;
@@ -123,10 +129,7 @@ value_T* visitorVisitForLoop(visitor_T* visitor, ast_T* node) {
             break;
         }
 
-        value_T* bodyResult = visitorVisit(
-            visitor,
-            node->forBody
-        );
+        value_T* bodyResult = visitorVisit(visitor, node->forBody);
 
         valueFree(result);
         result = bodyResult;
@@ -135,15 +138,12 @@ value_T* visitorVisitForLoop(visitor_T* visitor, ast_T* node) {
             break;
         }
 
-        value_T* updateResult = visitorVisit(
-            visitor,
-            node->forUpdate
-        );
+        value_T* updateResult = visitorVisit(visitor, node->forUpdate);
         valueFree(updateResult);
     }
 
     // Remove the loop-local variables and free the loop scope.
-    scopeRemoveVariables(loopScope, loopScope->variablesSize);
+    visitorCleanupForLoopScope(loopScope);
 
     return result;
 }

@@ -59,7 +59,7 @@ value_T* visitorVisitUnaryOperation(visitor_T* visitor, ast_T* node);
  * Detects cyclic field definitions and limits nesting depth.
  */
 
-value_T* visitorCreateDefaultConstruct(scope_T* scope, ast_T* definition, const char** typeStack, size_t depth);
+value_T* visitorCreateDefaultConstruct(visitor_T* visitor, scope_T* scope, ast_T* definition, const char** typeStack, size_t depth);
 	
 /*
  * Creates a construct instance, initializes its default fields, and
@@ -72,6 +72,11 @@ value_T* visitorVisitConstructInstantiation(visitor_T* visitor, ast_T* node);
  * Creates an array with a specified capacity and element type.
  */
 value_T* visitorVisitArrayConstructor(visitor_T* visitor, ast_T* node);
+
+/*
+ * Evaluates a method call belonging to the std:array namespace.
+ */
+value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node);
 
 /*
  * Evaluates a variable definition and registers the variable.

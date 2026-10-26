@@ -19,12 +19,14 @@ ast_T* parserParseExpression(parser_T* parser, scope_T* scope) {
 	ast_T* left = parserParseTerm(parser, scope);
 
 	while (parser->currentToken->type == TOKEN_PLUS || parser->currentToken->type == TOKEN_MINUS) {
+		token_T* operationToken = parser->currentToken;
 		int operationType = parser->currentToken->type;
 		parserEat(parser, operationType);
 
 		ast_T* right = parserParseTerm(parser, scope);
 
 		ast_T* operation = astInit(AST_BINARY_OPERATION);
+		parserSetNodeLocation(operation, operationToken);
 		operation->binaryOperationLeft = left;
 		operation->binaryOperationRight = right;
 		operation->binaryOperationType = operationType;
@@ -52,12 +54,14 @@ ast_T* parserParseTerm(parser_T* parser, scope_T* scope) {
 	ast_T* left = parserParseUnary(parser, scope);
 
 	while (parser->currentToken->type == TOKEN_MULTIPLY || parser->currentToken->type == TOKEN_DIVIDE) {
+		token_T* operationToken = parser->currentToken;
 		int operationType = parser->currentToken->type;
 		parserEat(parser, operationType);
 
 		ast_T* right = parserParseUnary(parser, scope);
 
 		ast_T* operation = astInit(AST_BINARY_OPERATION);
+		parserSetNodeLocation(operation, operationToken);
 		operation->binaryOperationLeft = left;
 		operation->binaryOperationRight = right;
 		operation->binaryOperationType = operationType;
@@ -90,12 +94,14 @@ ast_T* parserParseComparison(parser_T* parser, scope_T* scope) {
 		   parser->currentToken->type == TOKEN_LESS_THAN_EQUAL ||
 		   parser->currentToken->type == TOKEN_MORE_THAN_EQUAL ||
 		   parser->currentToken->type == TOKEN_NOT_EQUAL) {
+		token_T* operationToken = parser->currentToken;
 		int operationType = parser->currentToken->type;
 		parserEat(parser, operationType);
 
 		ast_T* right = parserParseExpression(parser, scope);
 
 		ast_T* operation = astInit(AST_BINARY_OPERATION);
+		parserSetNodeLocation(operation, operationToken);
 		operation->binaryOperationLeft = left;
 		operation->binaryOperationRight = right;
 		operation->binaryOperationType = operationType;
@@ -120,12 +126,14 @@ ast_T* parserParseComparison(parser_T* parser, scope_T* scope) {
 
 ast_T* parserParseUnary(parser_T* parser, scope_T* scope) {
 	if (parser->currentToken->type == TOKEN_NOT) {
+		token_T* operationToken = parser->currentToken;
 		int operationType = parser->currentToken->type;
 		parserEat(parser, TOKEN_NOT);
 		
 		ast_T* operand = parserParseUnary(parser, scope);
 		
 		ast_T* operation = astInit(AST_UNARY_OPERATION);
+		parserSetNodeLocation(operation, operationToken);
 		operation->unaryOperationOperand = operand;
 		operation->unaryOperationType = operationType;
 		operation->scope = scope;

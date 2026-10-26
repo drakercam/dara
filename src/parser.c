@@ -380,55 +380,8 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 				// A qualified name followed by '(' is a function call.
 				if (parser->currentToken->type == TOKEN_LEFTPAREN) {
 					if (strcmp(qualifiedName, "std:array") == 0) {
-						ast_T* arrayConstructor = astInit(AST_ARRAY_CONSTRUCTOR);
-						arrayConstructor->scope = scope;
-						arrayConstructor->location = startLocation;
-
-						parserEat(parser, TOKEN_LEFTPAREN);
-
-						// The capacity is optional. Omitted capacity defaults to 1.
-						if (parser->currentToken->type != TOKEN_RIGHTPAREN) {
-							arrayConstructor->arrayConstructorCapacity =
-								parserParseComparison(parser, scope);
-						}
-
-						parserEat(parser, TOKEN_RIGHTPAREN);
-						parserEat(parser, TOKEN_ARROW);
-
-						if (parser->currentToken->type != TOKEN_ID) {
-							parserReportError(
-								parser,
-								"E1102",
-								"Expected an element type after '->' in array constructor."
-							);
-							free(qualifiedName);
-							astFree(arrayConstructor);
-							exit(EXIT_FAILURE);
-						}
-
-						const char* elementType = parser->currentToken->value;
-
-						arrayConstructor->arrayConstructorElementType = calloc(
-							strlen(elementType) + 1,
-							sizeof(char)
-						);
-
-						if (arrayConstructor->arrayConstructorElementType == (void*)0) {
-							free(qualifiedName);
-							astFree(arrayConstructor);
-							fprintf(stderr, "Failed to allocate array element type.\n");
-							exit(1);
-						}
-
-						strcpy(
-							arrayConstructor->arrayConstructorElementType,
-							elementType
-						);
-
-						parserEat(parser, TOKEN_ID);
 						free(qualifiedName);
-
-						return arrayConstructor;
+						return parserParseArrayConstructor(parser, scope, startLocation);
 					}
 
 					ast_T* functionCall =
