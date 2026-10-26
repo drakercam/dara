@@ -1,251 +1,231 @@
 # Dara v0.2
 
-Dara is a small interpreted programming language written in C. It focuses on explicit types, structured data, functions, namespaces, reference parameters, and native graphics bindings.
-
-Dara is actively developed, and some features remain experimental.
+Dara is an interpreted programming language written in C. It provides explicit types, constructs, functions, namespaces, references, runtime diagnostics, and native Raylib bindings.
 
 ## Features
 
-- **Variables and types:** `int`, `float`, `string`, `bool`, `auto`, and `var` as an alias for `auto`.
-- **Functions:** Typed parameters, return types, and `noval` for functions that return no useful value.
-- **Control flow:** `if`, `while`, and `for` statements.
-- **Operators:** Arithmetic, comparisons, boolean negation, assignment, and compound assignment (`+=`, `-=`).
-- **Constructs:** Structured values with typed fields, default initialization, named initializers, and nested member access.
-- **Methods:** Construct methods with explicit instance arguments.
-- **Namespaces:** Nested namespaces and qualified names using `:`.
-- **References:** Reference parameters using `&`, including supported references to nested fields.
-- **Arrays:** Typed array construction with capacity, element-type declarations, and size and capacity queries.
-- **Runtime values:** Strings, booleans, colors, arrays, and constructs with explicit memory ownership.
-- **Diagnostics:** Shared, coded parser and runtime diagnostics, with filename and source-location information.
-- **Graphics:** Initial native Raylib bindings for window management, frame drawing, rectangles, and built-in colors.
+- **Variables and types:** `int`, `float`, `string`, `bool`, `auto`, and `noval`.
+- **Functions:** Parameters, return values, and explicit return types.
+- **Constructs:** Custom data types, nested fields, designated initialization, and methods.
+- **Namespaces:** Qualified function and method calls, such as `std:print()`.
+- **References:** Reference parameters using `&`, allowing functions to modify existing variables and fields.
+- **Control flow:** `if`, `else`, `while`, and `for`.
+- **Operators:** Arithmetic, comparison, logical, assignment, and compound-assignment operators.
+- **Arrays:** Typed arrays, capacity allocation, element storage, and size/capacity queries.
+- **Runtime diagnostics:** Categorized lexer, parser, and runtime errors with error codes and source locations.
+- **Memory management:** Explicit allocation and cleanup within the C runtime, including value copying and reference ownership.
+- **Raylib bindings:** Window creation, drawing, frame handling, rectangles, and predefined colors.
 
 ## Build and run
 
-Build Dara using the project's Makefile:
+Build Dara using the included Makefile:
 
 ```sh
 make
 ```
 
-Run a source file:
+Run a Dara source file:
 
 ```sh
-./dara.out examples/print.dara
+./dara.out examples/main.dara
 ```
 
-For a clean rebuild:
+Install the interpreter:
 
 ```sh
-make clean
-make
+sudo make install
 ```
 
-## Quick example
+## Example
 
 ```dara
-construct Stats {
-    int score;
-};
+int number = 42;
+float decimal = 3.14;
+string message = "Hello, Dara!";
 
-construct Player {
-    string name;
-    Stats stats;
-};
-
-func add(int a, int b) -> int {
-    return a + b;
-};
-
-Player player = construct Player(
-    .name = "Dara",
-    .stats = construct Stats(.score = 10)
-);
-
-player.stats.score += add(20, 12);
-
-print(player.name);
-print(player.stats.score);
-```
-
-Expected output:
-
-```text
-Dara
-42
+std:print(message);
+std:print(number);
+std:print(decimal);
 ```
 
 ## Language overview
 
-### Variables and functions
+### Variables and types
+
+Declare variables with an explicit type or use `auto` to infer their type from an initializer.
 
 ```dara
-int count = 10;
-float speed = 30.0;
-string name = "Dara";
-bool enabled = true;
+int health = 100;
+float speed = 4.5;
+string name = "Player";
+bool alive = true;
 
-auto result = 40;
-var anotherResult = 2;
+auto score = 0;
 ```
 
-`auto` infers its type from an initializer. A declaration such as `auto value;` cannot infer a type and currently produces runtime diagnostic `E2001`.
+Typed variables can be declared without an initializer where supported. An `auto` variable requires an initializer because its type cannot otherwise be inferred.
 
-Functions declare parameter types and their return type using `->`:
+### Functions
+
+Functions can accept parameters and return values. Use `noval` for functions that do not return a value.
 
 ```dara
-func add(int a, int b) -> int {
+int add(int a, int b) {
     return a + b;
-};
+}
 
-func greet(string name) -> noval {
-    print(name);
-};
+noval greet(string name) {
+    std:print(name);
+}
+
+std:print(add(10, 20));
+greet("Dara");
 ```
 
 ### Constructs and methods
 
-Constructs group related fields into structured values. Fields can have default values, and instances support named initialization and nested member access.
+Constructs define custom data types with named fields and methods. Fields can contain other constructs, allowing nested data structures.
 
 ```dara
-construct Player {
-    int score;
+construct Stats {
+    int health;
+    int stamina;
+}
 
-    func report(Player player) -> noval {
-        print(player.score);
-    };
+construct Player {
+    string name;
+    Stats stats;
+
+    noval report(Player& player) {
+        std:print(player.name);
+        std:print(player.stats.health);
+    }
+}
+
+Player player = {
+    .name = "Player",
+    .stats = {
+        .health = 100,
+        .stamina = 75
+    }
 };
 
-Player player = construct Player(.score = 100);
 player.report(player);
 ```
 
-Construct methods use explicit instance arguments rather than an implicit `this` or `self`.
+Methods use an explicit receiver argument rather than an implicit `this`. References allow the receiver or other arguments to be modified without copying their underlying value.
 
 ### Namespaces
 
-Namespaces organize declarations and support qualified names:
+Namespaces organize functions and support qualified calls.
 
 ```dara
-namespace io {
-    namespace debug {
-        func printMessage() -> noval {
-            print("debug");
-        };
-    };
-};
+std:print("Hello!");
 
-io:debug:printMessage();
+std:math:addInt(10, 20);
 ```
 
-The `:` separator identifies qualified names, while `.` is used for member access and supported method calls.
+Namespace-qualified calls can also be used to organize native library bindings.
 
-### Reference parameters
+### References
 
-Appending `&` to a parameter type allows a function to modify an existing assignable value.
+Use `&` in a parameter declaration to receive a reference to an existing variable or field.
 
 ```dara
-func setScore(int& score) -> noval {
-    score = 99;
-};
+noval damage(int& health) {
+    health -= 10;
+}
 
-int score = 10;
-setScore(score);
-print(score);
+int health = 100;
+damage(health);
+
+std:print(health);
 ```
 
-Reference arguments can include supported variables and member-access expressions, but cannot be arbitrary temporary expressions. Ordinary parameters receive value copies; reference parameters borrow existing storage.
+Reference arguments must refer to assignable variables or fields. Ordinary parameters receive copied values.
+
+### Operators and control flow
+
+Dara supports arithmetic, comparisons, logical operations, assignment, and compound assignment.
+
+```dara
+int counter = 0;
+
+while (counter < 5) {
+    std:print(counter);
+    counter += 1;
+}
+
+if (counter == 5) {
+    std:print("Finished");
+}
+```
+
+`for` loops are also supported.
 
 ### Arrays
 
-Arrays can be constructed with a capacity and declared element type:
+Arrays support allocated capacity, element storage, and size/capacity queries through the standard array namespace.
 
 ```dara
-array numbers;
+array numbers = std:array(5) -> int;
 
-numbers = std:array(5) -> int;
-
-print(std:array:size(numbers));
-print(std:array:capacity(numbers));
+std:print(std:array:size(numbers));
+std:print(std:array:capacity(numbers));
 ```
 
-The constructor creates an array with the requested capacity and an initial size of zero. The `std:array:size` and `std:array:capacity` operations query its current size and capacity.
+An array's size represents its current number of stored elements; capacity represents its allocated storage. Array operations and supported element types depend on the current runtime implementation.
 
-Array declarations, initialization, and mutation continue to evolve. Consult `DOCS.md` for current implementation details.
+## Raylib
 
-### Operators and statements
+Dara provides native bindings for basic Raylib functionality, including:
 
-Supported expression operators include:
+- `rl:InitWindow`
+- `rl:WindowShouldClose`
+- `rl:BeginDrawing`
+- `rl:EndDrawing`
+- `rl:CloseWindow`
+- `rl:ClearBackground`
+- `rl:DrawRectangle`
 
-- Arithmetic: `+`, `-`, `*`, `/`
-- Comparisons: `==`, `!=`, `<`, `<=`, `>`, `>=`
-- Boolean negation: `!`
-- Assignment: `=`, `+=`, `-=`
-
-Statements are separated by semicolons, and blocks use braces.
-
-## Graphics with Raylib
-
-Dara includes an initial set of native Raylib bindings under the `rl:` namespace.
-
-```dara
-func main() -> noval {
-    rl:InitWindow(1280, 720, "Dara graphics");
-
-    while (!rl:WindowShouldClose()) {
-        rl:BeginDrawing();
-        rl:ClearBackground(rl:WHITE);
-        rl:DrawRectangle(100, 100, 200, 150, rl:BLUE);
-        rl:EndDrawing();
-    };
-
-    rl:CloseWindow();
-};
-
-main();
-```
-
-Currently exposed functions:
-
-- Window management: `rl:InitWindow`, `rl:WindowShouldClose`, `rl:CloseWindow`
-- Drawing: `rl:BeginDrawing`, `rl:EndDrawing`, `rl:ClearBackground`, `rl:DrawRectangle`
-- Colors: `rl:WHITE`, `rl:BLACK`, `rl:RED`, `rl:GREEN`, `rl:BLUE`
-
-Raylib must be installed, and the interpreter must be linked against Raylib and its required platform libraries. The binding layer is explicit: additional functions must be implemented and registered individually.
-
-## Diagnostics
-
-Dara's diagnostic system reports errors with a filename, line, column, category, code, and message.
+Predefined colors include `WHITE`, `BLACK`, `RED`, `GREEN`, and `BLUE`.
 
 Example:
 
-```text
-examples/test.dara:1:4: Syntax Error[E1103]: Invalid assignment target.
+```dara
+define raylib as rl;
+
+rl:InitWindow(800, 600, "Dara");
+
+while (!rl:WindowShouldClose()) {
+    rl:BeginDrawing();
+    rl:ClearBackground(BLACK);
+    rl:DrawRectangle(350, 250, 100, 100, RED);
+    rl:EndDrawing();
+}
+
+rl:CloseWindow();
 ```
 
-Parser diagnostics use the `E11xx` range, while runtime diagnostics use the `E20xx` range.
+Raylib must be installed and available to the native bindings used by the interpreter.
 
-See [`ERROR_CODES.md`](ERROR_CODES.md) for diagnostic definitions and implementation status.
+## Diagnostics and memory management
 
-## Memory management
+Dara reports lexer, parser, and runtime errors with diagnostic codes, source locations, and descriptive messages.
 
-Dara is implemented in C and explicitly manages runtime memory.
-
-- Ordinary variables own their stored values.
-- Ordinary function parameters receive value copies.
-- Reference parameters borrow existing values.
-- Construct fields own their stored values.
-- Assignment and value replacement must release owned memory exactly once.
-
-Memory-sensitive changes should be tested with Valgrind, especially around references, nested constructs, arrays, strings, and value copying.
+The interpreter manages runtime values and their allocated resources internally. Ordinary Dara code does not directly manage C allocations. Reference parameters borrow existing values, while ordinary arguments use copied values.
 
 ## Project documentation
 
-- [`DOCS.md`](DOCS.md) — Language behavior, runtime design, examples, and limitations.
-- [`ERROR_CODES.md`](ERROR_CODES.md) — Diagnostic reference and implementation status.
-- `examples/` — Example programs and test cases.
+Consult the project's documentation for further details about:
 
-## Current limitations
+- Language syntax and runtime behavior
+- Diagnostic and error codes
+- Memory ownership and value handling
+- Implemented features and planned development
 
-Dara is under active development. Do not assume support for features that are still planned or experimental, including a complete standard library, imports, general native-library loading, comprehensive private-member enforcement, and complete type/coercion rules.
+## Current scope
 
-Contributions and language changes should include valid and invalid test cases, appropriate diagnostics, and correct memory cleanup.
+Dara is actively developed. Some features and standard-library operations remain incomplete or experimental. Import handling, native-library integration, access control, and broader standard-library functionality continue to evolve.
+
+This README describes the intended usage of currently implemented features; consult the source and detailed documentation for exact behavior where support is still evolving.
