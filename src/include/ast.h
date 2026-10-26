@@ -15,6 +15,7 @@ typedef struct AST_STRUCT {
 		AST_NAMESPACE_DEFINITION,
 		AST_VARIABLE,
 		AST_FUNCTION_CALL,
+		AST_ARRAY_CONSTRUCTOR,
 		AST_METHOD_CALL,
 		AST_STRING,
 		AST_COMPOUND,
@@ -31,8 +32,7 @@ typedef struct AST_STRUCT {
 		AST_ASSIGNMENT,
 		AST_FOR_LOOP,
 		AST_SWITCH_STATEMENT,
-		AST_ENUM_DEFINITION,
-		
+		AST_ENUM_DEFINITION		
 	} type;
 	
 	// SOURCE_LOCATION
@@ -61,6 +61,10 @@ typedef struct AST_STRUCT {
 	char* functionCallName;
 	struct AST_STRUCT** functionCallArguments;
 	size_t functionCallArgumentsSize;
+	
+	// AST_ARRAY_CONSTRUCTOR
+	struct AST_STRUCT* arrayConstructorCapacity;
+	char* arrayConstructorElementType;
 	
 	// AST_METHOD_CALL
 	char* methodCallConstructName;

@@ -42,6 +42,10 @@ ast_T* astInit(int type) {
 	ast->functionCallArguments = (void*)0;
 	ast->functionCallArgumentsSize = 0;
 	
+	// AST_ARRAY_CONSTRUCTOR
+	ast->arrayConstructorCapacity = (void*)0;
+	ast->arrayConstructorElementType = (void*)0;
+	
 	// AST_METHOD_CALL
 	ast->methodCallConstructName = (void*)0;
     ast->methodCallName = (void*)0;
@@ -240,6 +244,11 @@ void astFree(ast_T* ast)
 			astFree(ast->forUpdate);
 			astFree(ast->forBody);
 			scopeFree(ast->forScope);
+			break;
+			
+		case AST_ARRAY_CONSTRUCTOR:
+			astFree(ast->arrayConstructorCapacity);
+			free(ast->arrayConstructorElementType);
 			break;
 
         case AST_NOOP:

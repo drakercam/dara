@@ -1,25 +1,8 @@
-construct Player {
-	int x;
-	int y;
-};
+array numbers = std:array(4) -> int;
+array generic = std:array() -> auto;
 
-construct Weapon {
-	int damage;
-};
+std:print(std:array.size(numbers));
+std:print(std:array.capacity(numbers));
 
-construct Armor {
-	int resistance;
-};
-
-chunk playerData;	// should initialize to noval
-playerData = chunk(...) -> any;	// not entirely sure what should be given to the initializer
-// could also do something like say weaponData = chunk(...) -> Weapon;
-// chunks can story collective multi typed data but also single typed data. I would need to implement any as a new keyword
-
-playerData.insert(construct Player(.x = 10, .y = 10));
-playerData.insert(construct Weapon(.damage = 50));
-playerData.insert(construct Armor(.resistance = 20));
-
-playerData.grow(2);	// doubles the size
-
-playerData.at(0).x = 15; 	// changes the player member .x from 10 to 15
+std:print(std:array.size(generic));
+std:print(std:array.capacity(generic));
