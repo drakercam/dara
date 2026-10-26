@@ -25,6 +25,42 @@ static value_T* visitorCreateDefaultValue(const char* typeName) {
     if (strcmp(typeName, "string") == 0) {
         return valueInitString("");
     }
+    
+    if (strcmp(typeName, "array") == 0) {
+		array_T* array = calloc(1, sizeof(array_T));
+
+		if (!array) {
+			return (void*)0;
+		}
+
+		array->capacity = 1;
+		array->size = 0;
+		array->elementType = VALUE_NULL;
+
+		array->elements = calloc(array->capacity, sizeof(value_T*));
+		array->elementTypeName = calloc(5, sizeof(char));
+
+		if (!array->elements || !array->elementTypeName) {
+			free(array->elements);
+			free(array->elementTypeName);
+			free(array);
+			return (void*)0;
+		}
+
+		strcpy(array->elementTypeName, "auto");
+
+		value_T* value = valueInit(VALUE_ARRAY);
+
+		if (!value) {
+			free(array->elements);
+			free(array->elementTypeName);
+			free(array);
+			return (void*)0;
+		}
+
+		value->arrayValue = array;
+		return value;
+	}
 
     return (void*)0;
 }
@@ -59,64 +95,52 @@ value_T* visitorVisitVariableDefinition(visitor_T* visitor, ast_T* node) {
 		value = visitorCreateDefaultValue(node->variableDefinitionType);
 	}
 	
-    if (value == (void*)0) {
-        printf("Failed to evaluate initializer for variable '%s'\n", node->variableDefinitionVariableName);
-        exit(1);
+    if (!value) {
+		return (void*)0;
     }
 
     char* declaredType = node->variableDefinitionType;
-    if (strcmp(declaredType, "int") == 0 && value->type != VALUE_INT) {
-        printf("Type error: variable '%s' expects int\n", node->variableDefinitionVariableName);
-        valueFree(value);
-        exit(1);
+    bool typeMatches = true;
+    
+    if (strcmp(declaredType, "int") == 0) {
+        typeMatches = value->type == VALUE_INT;
     }
 
-    if (strcmp(declaredType, "float") == 0 && value->type != VALUE_FLOAT) {
-        printf("Type error: variable '%s' expects float\n", node->variableDefinitionVariableName);
-        valueFree(value);
-        exit(1);
+    else if (strcmp(declaredType, "float") == 0) {
+        typeMatches = value->type == VALUE_FLOAT;
     }
     
-    if (strcmp(declaredType, "string") == 0 && value->type != VALUE_STRING) {
-		printf("Type error: variable '%s' expects string\n", node->variableDefinitionVariableName);
-		valueFree(value);
-		exit(1);
+    else if (strcmp(declaredType, "string") == 0) {
+		typeMatches = value->type == VALUE_STRING;
 	}
 	
-	if (strcmp(declaredType, "array") == 0 && value->type != VALUE_ARRAY) {
-		printf("Type error: variable '%s' expects array\n", node->variableDefinitionVariableName);
-		valueFree(value);
-		exit(1);
+	else if (strcmp(declaredType, "boolean") == 0) {
+        typeMatches = value->type == VALUE_BOOLEAN;
+    }
+	
+	else if (strcmp(declaredType, "array") == 0) {
+		typeMatches = value->type == VALUE_ARRAY;
 	}
-
-	bool isBuiltinType =
-		strcmp(declaredType, "auto") == 0 ||
-		strcmp(declaredType, "int") == 0 ||
-		strcmp(declaredType, "float") == 0 ||
-		strcmp(declaredType, "string") == 0 ||
-		strcmp(declaredType, "array") == 0;
-
-	if (!isBuiltinType) {
-		ast_T* constructDefinition =
-			scopeGetQualifiedConstructDefinition(node->scope, declaredType);
-
+	
+	else if (strcmp(declaredType, "auto") != 0) {
+		ast_T* constructDefinition = scopeGetQualifiedConstructDefinition(node->scope, declaredType);
+		
 		if (constructDefinition == (void*)0) {
-			printf("Unknown type '%s'\n", declaredType);
+			visitorReportDiagnostic(visitor, node, "E2021", "Unknown variable type.");
 			valueFree(value);
-			exit(1);
+			return (void*)0;
 		}
-
-		if (value->type != VALUE_CONSTRUCT ||
-			strcmp(value->constructValue.name, declaredType) != 0) {
-			printf("Type error: variable '%s' expects construct '%s'\n",
-				node->variableDefinitionVariableName,
-				declaredType);
-			valueFree(value);
-			exit(1);
-		}
+		
+		typeMatches = (value->type == VALUE_CONSTRUCT && strcmp(value->constructValue.name, declaredType) == 0);
 	}
-
-    scopeAddVariable(node->scope, node->variableDefinitionVariableName, value);
+	
+	if (!typeMatches) {
+		visitorReportDiagnostic(visitor, node, "E2020", "Variable initializer does not match declared type.");
+		valueFree(value);
+		return (void*)0;
+	}
+	
+	scopeAddVariable(node->scope, node->variableDefinitionVariableName, value);
 
     return (void*)0;
 }
@@ -129,21 +153,27 @@ value_T* visitorVisitVariable(visitor_T* visitor, ast_T* node) {
 		
 	variable_T* var = scopeGetVariable(node->scope, node->variableName);
 				
-	if (var != (void*)0) {
+	if (var) {
 		return valueCopy(var->value);
 	}
 	
 	value_T* constant = builtinRaylibGetConstant(node->variableName);
 	
-	if (constant != (void*)0) {
+	if (constant) {
 		return constant;
 	}
 	
-	printf(
-		"Runtime Error[E2002]: Undefined variable '%s'\n",
-		node->variableName
-	);
-	exit(EXIT_FAILURE);
+	char message[256];
+
+    snprintf(
+        message,
+        sizeof(message),
+        "Undefined variable '%s'.",
+        node->variableName
+    );
+
+    visitorReportDiagnostic(visitor, node, "E2002", message);
+    return (void*)0;
 }
 
 /*
@@ -158,30 +188,24 @@ value_T* visitorVisitAssignment(visitor_T* visitor, ast_T* node) {
     // Evaluate the right-hand side first.
     value_T* newValue = visitorVisit(visitor, node->assignmentValue);
 
-    if (newValue == (void*)0) {
-        printf("Failed to evaluate assignment value\n");
-        exit(1);
+    if (!newValue) {
+        return (void*)0;
     }
+    
+    value_T* oldValue = visitorGetAssignmentTargetValue(visitor, target);
+    
+    if (!oldValue) {
+		valueFree(newValue);
+		return (void*)0;
+	}
 
     // Compound assignment combines the existing target value with
     // the evaluated right-hand value.
-    if (
-        node->assignmentOperator == TOKEN_PLUS_EQUAL ||
-        node->assignmentOperator == TOKEN_MINUS_EQUAL
-    ) {
-        value_T* oldValue = visitorGetAssignmentTargetValue(
-            visitor,
-            target
-        );
-
-        if (
-            oldValue->type != newValue->type ||
-            (oldValue->type != VALUE_INT &&
-             oldValue->type != VALUE_FLOAT)
-        ) {
-            printf("Compound assignment requires matching numeric types\n");
+    if (node->assignmentOperator == TOKEN_PLUS_EQUAL || node->assignmentOperator == TOKEN_MINUS_EQUAL) {
+        if (oldValue->type != newValue->type || (oldValue->type != VALUE_INT && oldValue->type != VALUE_FLOAT)) {
+			visitorReportDiagnostic(visitor, node, "E2022", "Compound assignment requires matching numeric types.");
             valueFree(newValue);
-            exit(EXIT_FAILURE);
+			return (void*)0;
         }
 
         if (oldValue->type == VALUE_INT) {
@@ -207,39 +231,32 @@ value_T* visitorVisitAssignment(visitor_T* visitor, ast_T* node) {
             valueFree(newValue);
             newValue = valueInitFloat(result);
         }
+        
+        if (!newValue) {
+			visitorReportDiagnostic(visitor, node, "E2015", "Failed to allocated compound assignment result.");
+			return (void*)0;
+		}
     }
 
-    // Find the current value for type checking.
-    value_T* oldValue = visitorGetAssignmentTargetValue(
-        visitor,
-        target
-    );
-
-    if (
-        oldValue != (void*)0 &&
-        oldValue->type != VALUE_NULL &&
-        oldValue->type != newValue->type
-    ) {
-        printf("Type error: cannot assign a different type\n");
+    if (oldValue->type != VALUE_NULL && oldValue->type != newValue->type) {
+        visitorReportDiagnostic(visitor, node, "E2023", "Cannot assign a value of a different type.");
         valueFree(newValue);
-        exit(EXIT_FAILURE);
+        return (void*)0;
     }
 
     // A construct variable or field must retain its construct type.
-    if (
-        oldValue != (void*)0 &&
-        oldValue->type == VALUE_CONSTRUCT &&
-        strcmp(
-            oldValue->constructValue.name,
-            newValue->constructValue.name
-        ) != 0
-    ) {
-        printf("Type error: cannot assign a different construct type\n");
+    if (oldValue != (void*)0 && oldValue->type == VALUE_CONSTRUCT && strcmp(oldValue->constructValue.name, newValue->constructValue.name) != 0) {
+        visitorReportDiagnostic(visitor, node, "E2024", "Cannot assign a value of a different construct type.");
         valueFree(newValue);
-        exit(1);
+        return (void*)0;
     }
 	if (target->type == AST_VARIABLE) {
 		variable_T* variable = scopeGetVariable(target->scope, target->variableName);
+
+		if (!variable) {
+			valueFree(newValue);
+			return (void*)0;
+		}
 
 		if (variable->ownsValue) {
 			// Ordinary variable: replace its owned value.
@@ -250,12 +267,14 @@ value_T* visitorVisitAssignment(visitor_T* visitor, ast_T* node) {
 			valueReplace(variable->value, newValue);
 		}
 	}
-    else {
+    else if (target->type == AST_MEMBER_ACCESS) {
         // Resolve the containing object in memory.
-        value_T* object = visitorGetAssignmentTargetValue(
-            visitor,
-            target->memberAccessObject
-        );
+        value_T* object = visitorGetAssignmentTargetValue(visitor, target->memberAccessObject);
+
+		if (!object) {
+			valueFree(newValue);
+			return (void*)0;
+		}
 
         // valueConstructSetField takes ownership of newValue.
         valueConstructSetField(
@@ -264,6 +283,11 @@ value_T* visitorVisitAssignment(visitor_T* visitor, ast_T* node) {
             newValue
         );
     }
+    else {
+		visitorReportDiagnostic(visitor, node, "E2025", "Invalid assignment target.");
+		valueFree(newValue);
+		return (void*)0;
+	}
 
     return valueInit(VALUE_NULL);
 }
@@ -274,16 +298,28 @@ value_T* visitorVisitAssignment(visitor_T* visitor, ast_T* node) {
  */
 
 value_T* visitorGetAssignmentTargetValue(visitor_T* visitor, ast_T* target) {
+	
+	if (!target) {
+		return (void*)0;
+	}
+	
     if (target->type == AST_VARIABLE) {
         variable_T* variable = scopeGetVariable(target->scope, target->variableName);
 
-        if (variable == (void*)0) {
-            printf(
-                "Cannot assign to undefined variable '%s'\n",
-                target->variableName
-            );
-            exit(1);
-        }
+        if (!variable) {
+			char message[256];
+			
+			snprintf(
+				message,
+				sizeof(message),
+				"Undefined variable '%s'.",
+				target->variableName
+			);
+			
+			visitorReportDiagnostic(visitor, target, "E2002", message);
+			
+			return (void*)0;
+		}
 
         return variable->value;
     }
@@ -292,27 +328,28 @@ value_T* visitorGetAssignmentTargetValue(visitor_T* visitor, ast_T* target) {
         // Resolve the actual stored object, not a copy.
         value_T* object = visitorGetAssignmentTargetValue(visitor, target->memberAccessObject);
 
-        if (object == (void*)0 || object->type != VALUE_CONSTRUCT) {
-            printf("Cannot assign a field on a non-construct value\n");
-            exit(1);
-        }
+        if (!object) {
+			return (void*)0;
+		}
+		
+		if (object->type != VALUE_CONSTRUCT) {
+			visitorReportDiagnostic(visitor, target, "E2009", "Cannot access a field on a value that is not a construct.");
+			return (void*)0;
+		}
 
         value_T* field = valueConstructGetField(
             object,
             target->memberAccessField
         );
 
-        if (field == (void*)0) {
-            printf(
-                "Unknown field '%s'\n",
-                target->memberAccessField
-            );
-            exit(1);
+        if (!field) {
+            visitorReportDiagnostic(visitor, target, "E2010", "Construct does not contain the requested field.");
+            return (void*)0;
         }
 
         return field;
     }
 
-    printf("Invalid assignment target\n");
-    exit(1);
+    visitorReportDiagnostic(visitor, target, "E2025", "Invalid target assignment.");
+    return (void*)0;
 }

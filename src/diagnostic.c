@@ -2,6 +2,22 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+static char* diagnosticCopyString(const char* string) {
+	if (string == (void*)0) {
+		return (void*)0;
+	}
+
+	size_t length = strlen(string) + 1;
+	char* copy = malloc(length);
+
+	if (copy != (void*)0) {
+		memcpy(copy, string, length);
+	}
+
+	return copy;
+}
 
 diagnostic_T* diagnosticInit(diagnosticCategory_T category, char* code, char* message, sourceLocation_T location) {
 	diagnostic_T* diagnostic = calloc(1, sizeof(diagnostic_T));
@@ -11,8 +27,8 @@ diagnostic_T* diagnosticInit(diagnosticCategory_T category, char* code, char* me
 	}
 	
 	diagnostic->category = category;
-	diagnostic->code = code;
-	diagnostic->message = message;
+	diagnostic->code = diagnosticCopyString(code);
+	diagnostic->message = diagnosticCopyString(message);
 	diagnostic->location = location;
 
 	return diagnostic;

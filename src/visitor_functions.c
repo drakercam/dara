@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <limits.h>
 
 /*
  * Registers a function definition in its scope.
@@ -36,6 +35,112 @@ value_T* visitorVisitNamespaceDefinition(visitor_T* visitor, ast_T* node) {
 	}
 	
 	return (void*)0;
+}
+
+static bool visitorBindArguments(visitor_T* visitor, ast_T* callNode, ast_T** parameters, size_t parameterCount, ast_T** arguments, size_t argumentCount, scope_T* targetScope, const char* callName) {
+	if (parameterCount != argumentCount) {
+		char message[256];
+
+		snprintf(
+			message,
+			sizeof(message),
+			"'%s' expects %zu argument(s), but received %zu",
+			callName,
+			parameterCount,
+			argumentCount
+		);
+
+		visitorReportDiagnostic(visitor, callNode, "E2033", message);
+
+		return false;
+	}
+
+	size_t boundCount = 0;
+
+	for (size_t i = 0; i < parameterCount; ++i) {
+		ast_T* parameter = parameters[i];
+		ast_T* argumentNode = arguments[i];
+
+		bool isReference = parameter->variableDefinitionIsReference;
+
+		value_T* argument = (void*)0;
+
+		if (isReference) {
+			if (argumentNode->type != AST_VARIABLE && argumentNode->type != AST_MEMBER_ACCESS) {
+				char message[256];
+
+				snprintf(
+					message,
+					sizeof(message),
+					"Reference parameter '%s' requires a variable or field argument",
+					parameter->variableDefinitionVariableName
+				);
+
+				visitorReportDiagnostic(visitor, callNode, "E2036", message);
+
+				scopeRemoveVariables(targetScope, boundCount);
+				return false;
+			}
+
+			argument = visitorGetAssignmentTargetValue(visitor, argumentNode);
+		}
+		else {
+			argument = visitorVisit(visitor, argumentNode);
+		}
+
+		/*
+		 * The expression or assignment-target visitor is responsible
+		 * for reporting its own error. Do not emit a duplicate here.
+		 */
+		if (argument == (void*)0) {
+			scopeRemoveVariables(targetScope, boundCount);
+			return false;
+		}
+
+		if (!visitorArgumentMatchesType(parameter, argument)) {
+			char message[256];
+
+			snprintf(
+				message,
+				sizeof(message),
+				"Argument type mismatch for parameter '%s'",
+				parameter->variableDefinitionVariableName
+			);
+
+			visitorReportDiagnostic(visitor, callNode, "E2037", message);
+
+			if (!isReference) {
+				valueFree(argument);
+			}
+
+			scopeRemoveVariables(targetScope, boundCount);
+			return false;
+		}
+
+		variable_T* binding;
+
+		if (isReference) {
+			binding = scopeAddReferenceVariable(targetScope, parameter->variableDefinitionVariableName, argument);
+		}
+		else {
+			binding = scopeAddVariable(targetScope, parameter->variableDefinitionVariableName, argument);
+		}
+
+		if (binding == (void*)0) {
+			if (!isReference) {
+				valueFree(argument);
+			}
+
+			visitorReportDiagnostic(visitor, callNode, "E2038", "Failed to bind a function or method parameter");
+
+			scopeRemoveVariables(targetScope, boundCount);
+			return false;
+		}
+
+		++boundCount;
+	}
+
+	return true;
 }
 
 /*
@@ -82,104 +187,36 @@ value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node) {
 	ast_T* funcDef;
 
 	if (strchr(node->functionCallName, ':') != (void*)0) {
-		funcDef = scopeGetQualifiedFunctionDefinition(
-			node->scope,
-			node->functionCallName
-		);
+		funcDef = scopeGetQualifiedFunctionDefinition(node->scope, node->functionCallName);
 	}
 	else {
-		funcDef = scopeGetFunctionDefinition(
-			node->scope,
-			node->functionCallName
-		);
+		funcDef = scopeGetFunctionDefinition(node->scope, node->functionCallName);
 	}
 
-	if (funcDef == (void*)0) {
-		printf("Undefined function '%s'\n", node->functionCallName);
-		exit(1);
+	if (!funcDef) {
+		char message[256];
+		
+		snprintf(message, sizeof(message), "Undefined function '%s'.", node->functionCallName);
+		
+		visitorReportDiagnostic(visitor, node, "E2032", message);
+		return (void*)0;
 	}
 
-	if (funcDef->functionDefinitionArgsSize != node->functionCallArgumentsSize) {
-		printf(
-			"ERROR: Calling function '%s' with %zu argument(s)\n"
-			"-- Expects %zu argument(s)\n",
-			funcDef->functionDefinitionName,
-			node->functionCallArgumentsSize,
-			funcDef->functionDefinitionArgsSize
-		);
-		exit(1);
+	if (!visitorBindArguments(
+		visitor,
+		node,
+		funcDef->functionDefinitionArgs,
+		funcDef->functionDefinitionArgsSize,
+		node->functionCallArguments,
+		node->functionCallArgumentsSize,
+		funcDef->functionDefinitionBody->scope,
+		node->functionCallName)) 
+	{
+		return (void*)0;
 	}
 	
 	
-	for (size_t i = 0; i < funcDef->functionDefinitionArgsSize; i++) {
-		ast_T* parameter = funcDef->functionDefinitionArgs[i];
-		ast_T* argumentNode = node->functionCallArguments[i];
-
-		bool isReference = parameter->variableDefinitionIsReference;
-		value_T* argument;
-
-		if (isReference) {
-			if (argumentNode->type != AST_VARIABLE &&
-				argumentNode->type != AST_MEMBER_ACCESS) {
-				printf(
-					"Reference parameter '%s' requires a variable or field argument\n",
-					parameter->variableDefinitionVariableName
-				);
-				exit(1);
-			}
-
-			argument = visitorGetAssignmentTargetValue(
-				visitor,
-				argumentNode
-			);
-		} else {
-			argument = visitorVisit(visitor, argumentNode);
-		}
-
-		if (argument == (void*)0) {
-			printf("Failed to evaluate function argument\n");
-			exit(1);
-		}
-
-		if (!visitorArgumentMatchesType(parameter, argument)) {
-			printf(
-				"Argument type mismatch for parameter '%s'\n",
-				parameter->variableDefinitionVariableName
-			);
-
-			if (!isReference) {
-				valueFree(argument);
-			}
-
-			exit(1);
-		}
-
-		variable_T* binding;
-
-		if (isReference) {
-			binding = scopeAddReferenceVariable(
-				funcDef->functionDefinitionBody->scope,
-				parameter->variableDefinitionVariableName,
-				argument
-			);
-		} else {
-			binding = scopeAddVariable(
-				funcDef->functionDefinitionBody->scope,
-				parameter->variableDefinitionVariableName,
-				argument
-			);
-		}
-
-		if (binding == (void*)0) {
-			if (!isReference) {
-				valueFree(argument);
-			}
-
-			printf("Failed to bind function parameter\n");
-			exit(1);
-		}
-	}
-
+	bool previousShouldReturn = visitor->shouldReturn;
 	visitor->shouldReturn = false;
 
 	value_T* result = visitorVisit(visitor, funcDef->functionDefinitionBody);
@@ -189,62 +226,71 @@ value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node) {
 
 
 	if (!didReturn) {
-		if (result != NULL) {
+		if (result != (void*)0) {
 			valueFree(result);
 		}
 
 		result = valueInit(VALUE_NULL);
+		
+		if (!result) {
+			scopeRemoveVariables(funcDef->functionDefinitionBody->scope, funcDef->functionDefinitionArgsSize);
+			visitorReportDiagnostic(visitor, node, "E2040", "Failed to allocate a return value.");
+			return (void*)0;
+		}
+	}
+	
+	/*
+	 * If a return expression failed, visitorVisitReturn() should not
+	 * set shouldReturn. Do not inspect a missing result as a value.
+	 */
+	if (!result) {
+		scopeRemoveVariables(funcDef->functionDefinitionBody->scope, funcDef->functionDefinitionArgsSize);
+		return (void*)0;
 	}
 
 	// Enforce the function's declared return type.
 	char* returnType = funcDef->functionDefinitionReturnType;
 
+	bool validReturn = false;
+
 	if (strcmp(returnType, "noval") == 0) {
-		if (result->type != VALUE_NULL) {
-			valueFree(result);
-			printf(
-				"Return type error: function '%s' declares noval\n",
-				funcDef->functionDefinitionName
-			);
-			exit(1);
-		}
+		validReturn = result->type == VALUE_NULL;
 	}
 	else if (strcmp(returnType, "int") == 0) {
-		if (!didReturn || result->type != VALUE_INT) {
-			valueFree(result);
-			printf(
-				"Return type error: function '%s' expects int\n",
-				funcDef->functionDefinitionName
-			);
-			exit(1);
-		}
+		validReturn = result->type == VALUE_INT;
 	}
 	else if (strcmp(returnType, "float") == 0) {
-		if (!didReturn || result->type != VALUE_FLOAT) {
-			valueFree(result);
-			printf(
-				"Return type error: function '%s' expects float\n",
-				funcDef->functionDefinitionName
-			);
-			exit(1);
-		}
+		validReturn = result->type == VALUE_FLOAT;
 	}
 	else if (strcmp(returnType, "string") == 0) {
-		if (!didReturn || result->type != VALUE_STRING) {
-			valueFree(result);
-			printf(
-				"Return type error: function '%s' expects string\n",
-				funcDef->functionDefinitionName
-			);
-			exit(1);
-		}
+		validReturn = result->type == VALUE_STRING;
+	}
+	else if (strcmp(returnType, "array") == 0) {
+		validReturn = result->type == VALUE_ARRAY;
 	}
 
-	scopeRemoveVariables(
-		funcDef->functionDefinitionBody->scope,
-		funcDef->functionDefinitionArgsSize
-	);
-	
+	if (!validReturn) {
+		char message[256];
+
+		snprintf(
+			message,
+			sizeof(message),
+			"Function '%s' has an invalid return value for declared type '%s'",
+			funcDef->functionDefinitionName,
+			returnType
+		);
+
+		valueFree(result);
+
+		scopeRemoveVariables(funcDef->functionDefinitionBody->scope, funcDef->functionDefinitionArgsSize);
+
+		visitorReportDiagnostic(visitor, node, "E2039", message);
+
+		return (void*)0;
+	}
+
+	scopeRemoveVariables(funcDef->functionDefinitionBody->scope, funcDef->functionDefinitionArgsSize);
+
 	return result;
 }
 
@@ -260,238 +306,158 @@ value_T* visitorVisitMethodCall(visitor_T* visitor, ast_T* node) {
 	if (strcmp(node->methodCallConstructName, "std:array") == 0) {
 		// dispatch to std:array builtins
 		
-		if (strcmp(node->methodCallName, "size") == 0 ||
-			strcmp(node->methodCallName, "capacity") == 0) {
-				
-			if (node->methodCallArgumentsSize != 1) {
-				visitorReportDiagnostic(visitor, node, "E2005", "Array size and capacity methods expect exactly one argument.");
-				return (void*)0;
-			}
-			
-			value_T* argument = visitorVisit(visitor, node->methodCallArguments[0]);
-			
-			if (!argument) {
-				return (void*)0;
-			}
-			
-			if (argument->type != VALUE_ARRAY || argument->arrayValue == (void*)0) {
-				visitorReportDiagnostic(visitor, node, "E2006", "Array operations requires an array argument.");
-				valueFree(argument);
-				return (void*)0;
-			}
-			
-			size_t resultValue;
-			if (strcmp(node->methodCallName, "size") == 0) {
-				resultValue = argument->arrayValue->size;
-			}
-			else if (strcmp(node->methodCallName, "capacity") == 0) {
-				resultValue = argument->arrayValue->capacity;
-			}
-			else {
-				valueFree(argument);
-				return (void*)0;
-			}
-			
-			valueFree(argument);
-			
-			if (resultValue > (size_t)INT_MAX) {
-				visitorReportDiagnostic(visitor, node, "E2007", "Array result exceeds supported integer range.");
-				return (void*)0;
-			}
-			
-			value_T* result = valueInit(VALUE_INT);
-			result->intValue = (int)resultValue;
-			
-			return result;
-		}	
-		
-		visitorReportDiagnostic(visitor, node, "E2008", "Unknown std:array method");
-	
-		return (void*)0;
+		return visitorVisitArrayMethodCall(visitor, node);
 	}
 	
 	
     // 1. Find the construct definition.
-    ast_T* construct = scopeGetQualifiedConstructDefinition(
-        node->scope,
-        node->methodCallConstructName
-    );
+    ast_T* construct = scopeGetQualifiedConstructDefinition(node->scope, node->methodCallConstructName);
 
-    if (construct == (void*)0) {
-        printf(
-            "Undefined construct '%s'\n",
-            node->methodCallConstructName
+    if (!construct) {
+        char message[256];
+        
+        snprintf(
+			message,
+			sizeof(message),
+			"Undefined construct '%s'.",
+			node->methodCallConstructName
         );
-        exit(1);
+        
+        visitorReportDiagnostic(visitor, node, "E2034", message);
+        
+        return (void*)0;
     }
 
     // 2. Find the requested method.
     ast_T* method = (void*)0;
 
-    for (size_t i = 0;
-         i < construct->constructDefinitionMethodsSize;
-         ++i) {
-
+    for (size_t i = 0; i < construct->constructDefinitionMethodsSize; ++i) {
         ast_T* candidate = construct->constructDefinitionMethods[i];
 
-        if (strcmp(
-                candidate->functionDefinitionName,
-                node->methodCallName
-            ) == 0) {
+        if (strcmp(candidate->functionDefinitionName, node->methodCallName) == 0) {
             method = candidate;
             break;
         }
     }
 
-    if (method == (void*)0) {
-        printf(
-            "Construct '%s' has no method named '%s'\n",
-            node->methodCallConstructName,
-            node->methodCallName
-        );
-        exit(1);
+    if (!method) {
+        char message[256];
+
+		snprintf(
+			message,
+			sizeof(message),
+			"Construct '%s' has no method named '%s'",
+			node->methodCallConstructName,
+			node->methodCallName
+		);
+
+		visitorReportDiagnostic(visitor, node, "E2035", message);
+
+		return (void*)0;
     }
 
-    // 3. Check the number of arguments.
-    if (method->functionDefinitionArgsSize != node->methodCallArgumentsSize) {
-        printf(
-            "Method '%s.%s' expects %zu argument(s), but received %zu\n",
-            node->methodCallConstructName,
-            node->methodCallName,
-            method->functionDefinitionArgsSize,
-            node->methodCallArgumentsSize
-        );
-        exit(1);
-    }
+    char callName[256];
 
-    // 4. Evaluate arguments and bind them to parameters.
-	for (size_t i = 0; i < method->functionDefinitionArgsSize; i++) {
-		ast_T* parameter = method->functionDefinitionArgs[i];
-		ast_T* argumentNode = node->methodCallArguments[i];
+	snprintf(
+		callName,
+		sizeof(callName),
+		"%s.%s",
+		node->methodCallConstructName,
+		node->methodCallName
+	);
 
-		bool isReference = parameter->variableDefinitionIsReference;
-		value_T* argument;
-
-		if (isReference) {
-			if (argumentNode->type != AST_VARIABLE &&
-				argumentNode->type != AST_MEMBER_ACCESS) {
-				printf(
-					"Reference parameter '%s' requires a variable or field argument\n",
-					parameter->variableDefinitionVariableName
-				);
-				exit(1);
-			}
-
-			argument = visitorGetAssignmentTargetValue(
-				visitor,
-				argumentNode
-			);
-		} else {
-			argument = visitorVisit(visitor, argumentNode);
-		}
-
-		if (argument == (void*)0) {
-			printf("Failed to evaluate method argument\n");
-			exit(1);
-		}
-
-		if (!visitorArgumentMatchesType(parameter, argument)) {
-			printf(
-				"Argument type mismatch for parameter '%s'\n",
-				parameter->variableDefinitionVariableName
-			);
-
-			if (!isReference) {
-				valueFree(argument);
-			}
-
-			exit(1);
-		}
-
-		variable_T* binding;
-
-		if (isReference) {
-			binding = scopeAddReferenceVariable(
-				method->functionDefinitionBody->scope,
-				parameter->variableDefinitionVariableName,
-				argument
-			);
-		} else {
-			binding = scopeAddVariable(
-				method->functionDefinitionBody->scope,
-				parameter->variableDefinitionVariableName,
-				argument
-			);
-		}
-
-		if (binding == (void*)0) {
-			if (!isReference) {
-				valueFree(argument);
-			}
-
-			printf("Failed to bind method parameter\n");
-			exit(1);
-		}
+	if (!visitorBindArguments(
+			visitor,
+			node,
+			method->functionDefinitionArgs,
+			method->functionDefinitionArgsSize,
+			node->methodCallArguments,
+			node->methodCallArgumentsSize,
+			method->functionDefinitionBody->scope,
+			callName
+		)) {
+		return (void*)0;
 	}
     
 	ast_T* previousMethod = visitor->currentMethod;
 	ast_T* previousConstruct = visitor->currentConstruct;
+	bool previousShouldReturn = visitor->shouldReturn;
 
 	visitor->currentMethod = method;
 	visitor->currentConstruct = construct;
 
-    // 5. Execute the method body.
     visitor->shouldReturn = false;
 
-    value_T* result = visitorVisit(
-        visitor,
-        method->functionDefinitionBody
-    );
+    value_T* result = visitorVisit(visitor, method->functionDefinitionBody);
 
     bool didReturn = visitor->shouldReturn;
-    visitor->shouldReturn = false;
-
-    // Match ordinary function behavior when no return was encountered.
-    if (!didReturn) {
-        valueFree(result);
-        result = valueInit(VALUE_NULL);
-    }
     
     visitor->currentMethod = previousMethod;
 	visitor->currentConstruct = previousConstruct;
+	visitor->shouldReturn = previousShouldReturn;
 
-    // 6. Enforce the declared return type.
-    char* returnType = method->functionDefinitionReturnType;
+    if (!didReturn) {
+		if (result != (void*)0) {
+			valueFree(result);
+		}
 
-    bool validReturn =
-        (strcmp(returnType, "noval") == 0 &&
-         result->type == VALUE_NULL) ||
-        (strcmp(returnType, "int") == 0 &&
-         didReturn && result->type == VALUE_INT) ||
-        (strcmp(returnType, "float") == 0 &&
-         didReturn && result->type == VALUE_FLOAT) ||
-        (strcmp(returnType, "string") == 0 &&
-         didReturn && result->type == VALUE_STRING);
+		result = valueInit(VALUE_NULL);
 
-    if (!validReturn) {
-        printf(
-            "Return type error: method '%s.%s' declares '%s'\n",
-            node->methodCallConstructName,
-            node->methodCallName,
-            returnType
-        );
+		if (!result) {
+			scopeRemoveVariables(method->functionDefinitionBody->scope, method->functionDefinitionArgsSize);
+			visitorReportDiagnostic(visitor, node, "E2040", "Failed to allocate a return value");
+			return (void*)0;
+		}
+	}
 
-        valueFree(result);
-        exit(1);
-    }
+	if (!result) {
+		scopeRemoveVariables(method->functionDefinitionBody->scope, method->functionDefinitionArgsSize);
+		return (void*)0;
+	}
 
-    // 7. Remove the parameter variables from the method scope.
-    scopeRemoveVariables(
-        method->functionDefinitionBody->scope,
-        method->functionDefinitionArgsSize
-    );
+	char* returnType = method->functionDefinitionReturnType;
 
-    return result;
+	bool validReturn = false;
+
+	if (strcmp(returnType, "noval") == 0) {
+		validReturn = result->type == VALUE_NULL;
+	}
+	else if (strcmp(returnType, "int") == 0) {
+		validReturn = didReturn && result->type == VALUE_INT;
+	}
+	else if (strcmp(returnType, "float") == 0) {
+		validReturn = didReturn && result->type == VALUE_FLOAT;
+	}
+	else if (strcmp(returnType, "string") == 0) {
+		validReturn = didReturn && result->type == VALUE_STRING;
+	}
+	else if (strcmp(returnType, "array") == 0) {
+		validReturn = didReturn && result->type == VALUE_ARRAY;
+	}
+
+	if (!validReturn) {
+		char message[256];
+
+		snprintf(
+			message,
+			sizeof(message),
+			"Method '%s' has an invalid return value for declared type '%s'",
+			callName,
+			returnType
+		);
+
+		valueFree(result);
+
+		scopeRemoveVariables(method->functionDefinitionBody->scope, method->functionDefinitionArgsSize);
+
+		visitorReportDiagnostic(visitor, node, "E2039", message);
+
+		return (void*)0;
+	}
+
+	scopeRemoveVariables(method->functionDefinitionBody->scope, method->functionDefinitionArgsSize);
+
+	return result;
 }
 
 /*
@@ -500,11 +466,15 @@ value_T* visitorVisitMethodCall(visitor_T* visitor, ast_T* node) {
 value_T* visitorVisitReturn(visitor_T* visitor, ast_T* node) {
 	value_T* result;
 	
-	if (node->returnValue == NULL) {
+	if (node->returnValue == (void*)0) {
 		result = valueInit(VALUE_NULL);
 	}
 	else {
 		result = visitorVisit(visitor, node->returnValue);
+	}
+	
+	if (!result) {
+		return (void*)0;
 	}
 	
 	visitor->shouldReturn = true;

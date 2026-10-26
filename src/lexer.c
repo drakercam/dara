@@ -17,10 +17,37 @@ static token_T* lexerCreateToken(lexer_T* lexer, int type, char* value, size_t s
 	return token;
 }
 
-lexer_T* lexerInit(char* contents) {
+static void lexerReportDiagnostic(lexer_T* lexer, const char* code, const char* message, size_t line, size_t column, size_t length) {
+	sourceLocation_T location = {0};
+
+	location.line = line;
+	location.column = column;
+	location.length = length;
+
+	diagnostic_T* diagnostic = diagnosticInit(
+		DIAGNOSTIC_LEXER,
+		(char*)code,
+		(char*)message,
+		location
+	);
+
+	if (diagnostic == (void*)0) {
+		return;
+	}
+
+	diagnosticPrint(diagnostic, lexer->fileName);
+	diagnosticFree(diagnostic);
+}
+
+lexer_T* lexerInit(char* contents, const char* fileName) {
 	lexer_T* lexer = calloc(1, sizeof(struct LEXER_STRUCT));
 	
+	if (!lexer) {
+		return (void*)0;
+	}
+	
 	lexer->contents = contents;
+	lexer->fileName = fileName;
 	lexer->index = 0;
 	lexer->c = contents[lexer->index];
 	
@@ -191,10 +218,22 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 				break;
 			}
 			
-			default:
-				printf("Unknown character: '%c' (%d)\n", lexer->c, lexer->c);
+			default: {
+				char message[128];
+
+				snprintf(
+					message,
+					sizeof(message),
+					"Unknown character '%c' (%d).",
+					lexer->c,
+					(unsigned char)lexer->c
+				);
+
+				lexerReportDiagnostic(lexer, "E1001", message, lexer->line, lexer->column, 1);
+
 				lexerAdvance(lexer);
 				break;
+			}
 		}
 	}
 	

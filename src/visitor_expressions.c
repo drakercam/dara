@@ -65,18 +65,17 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
     value_T* left = visitorVisit(visitor, node->binaryOperationLeft);
     value_T* right = visitorVisit(visitor, node->binaryOperationRight);
 
-    if (left == (void*)0 || right == (void*)0) {
+    if (!left || !right) {
         valueFree(left);
         valueFree(right);
         return (void*)0;
     }
 
-    if (left->type != right->type ||
-        (left->type != VALUE_INT && left->type != VALUE_FLOAT)) {
-        printf("Arithmetic operations require matching numeric types\n");
+    if (left->type != right->type || (left->type != VALUE_INT && left->type != VALUE_FLOAT)) {
+        visitorReportDiagnostic(visitor, node, "E2027", "Arithmetic operations require matching numeric types.");
         valueFree(left);
         valueFree(right);
-        exit(1);
+        return (void*)0;
     }
     
     int isInt = left->type == VALUE_INT;
@@ -154,20 +153,20 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
 
             case TOKEN_DIVIDE:
                 if (b == 0) {
-                    printf("Division by zero\n");
+                    visitorReportDiagnostic(visitor, node, "E2028", "Division by zero.");
                     valueFree(left);
                     valueFree(right);
-                    exit(1);
+                    return (void*)0;
                 }
 
                 result = a / b;
                 break;
 
             default:
-                printf("Unknown arithmetic operator\n");
+                visitorReportDiagnostic(visitor, node, "E2029", "Unknown arithmetic operator.");
                 valueFree(left);
                 valueFree(right);
-                exit(1);
+                return (void*)0;
         }
 
         valueFree(left);
@@ -205,20 +204,20 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
 
         case TOKEN_DIVIDE:
             if (b == 0.0) {
-                printf("Division by zero\n");
+                visitorReportDiagnostic(visitor, node, "E2028", "Division by zero.");
                 valueFree(left);
                 valueFree(right);
-                exit(1);
+                return (void*)0;
             }
 
             result = a / b;
             break;
 
         default:
-            printf("Unknown arithmetic operator\n");
+            visitorReportDiagnostic(visitor, node, "E2029", "Unknown arithmetic operator.");
             valueFree(left);
             valueFree(right);
-            exit(1);
+            return (void*)0;
     }
 
     valueFree(left);
@@ -234,16 +233,16 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
 value_T* visitorVisitUnaryOperation(visitor_T* visitor, ast_T* node) {
 	value_T* operand = visitorVisit(visitor, node->unaryOperationOperand);
 	
-	if (operand == (void*)0) {
+	if (!operand) {
 		return (void*)0;
 	}
 	
 	switch(node->unaryOperationType) {
 		case TOKEN_NOT: {
 			if (operand->type != VALUE_BOOLEAN) {
-				printf("Logical NOT requires a boolean operand\n");
+				visitorReportDiagnostic(visitor, node, "E2030", "Logical NOT requires a boolean operand.");
 				valueFree(operand);
-				exit(1);
+				return (void*)0;
 			}
 			
 			bool result = !operand->booleanValue;
@@ -252,8 +251,8 @@ value_T* visitorVisitUnaryOperation(visitor_T* visitor, ast_T* node) {
 		}
 			
 		default:
-			printf("Unknown Unary Operator\n");
+			visitorReportDiagnostic(visitor, node, "E2031", "Unknown unary operator.");
 			valueFree(operand);
-			exit(1);
+			return (void*)0;
 	}
 }
