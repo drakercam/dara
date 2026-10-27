@@ -1,4 +1,4 @@
-# Dara Error Codes
+# Dara v0.3 Error Codes
 
 This document records Dara's parser and runtime diagnostic codes. Error codes are intended to remain stable as the parser is extended.
 
