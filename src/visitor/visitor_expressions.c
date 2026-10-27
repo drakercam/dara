@@ -1,6 +1,6 @@
-#include "include/visitor.h"
-#include "include/value.h"
-#include "include/token.h"
+#include "../include/visitor.h"
+#include "../include/value.h"
+#include "../include/token.h"
 
 #include <stdio.h>
 #include <stdlib.h>

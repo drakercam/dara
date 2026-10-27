@@ -1,5 +1,5 @@
-#include "include/parser.h"
-#include "include/diagnostic.h"
+#include "../include/parser.h"
+#include "../include/diagnostic.h"
 
 #include <stdlib.h>
 #include <stdio.h>

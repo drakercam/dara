@@ -1,6 +1,6 @@
-#include "include/visitor.h"
-#include "include/scope.h"
-#include "include/value.h"
+#include "../include/visitor.h"
+#include "../include/scope.h"
+#include "../include/value.h"
 
 #include <stdio.h>
 #include <stdlib.h>

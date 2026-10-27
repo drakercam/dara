@@ -1,4 +1,32 @@
-array numbers;
-numbers = std:array(5) -> auto;
-std:print(std:array.size(numbers));
-std:print(std:array.capacity(numbers));
+construct Player {
+	array names;
+};
+
+Player player = construct Player(
+	.names = std:array(4) -> string
+);
+
+std:array.add(player.names, "Hello, World!");
+std:array.add(player.names, "Goodbye!");
+std:array.add(player.names, "Whats up!");
+std:array.add(player.names, "Yo yo yo!");
+
+std:print(std:array.at(player.names, 0));
+std:print(std:array.at(player.names, 1));
+std:print(std:array.at(player.names, 2));
+std:print(std:array.at(player.names, 3));
+
+player.names = std:array(12) -> int;
+
+std:print(std:array.size(player.names));
+std:print(std:array.capacity(player.names));
+
+std:array.add(player.names, "Hello, World!");
+std:array.add(player.names, "Goodbye!");
+std:array.add(player.names, "Whats up!");
+std:array.add(player.names, "Yo yo yo!");
+
+std:print(std:array.at(player.names, 0));
+std:print(std:array.at(player.names, 1));
+std:print(std:array.at(player.names, 2));
+std:print(std:array.at(player.names, 3));

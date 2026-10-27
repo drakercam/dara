@@ -1,9 +1,9 @@
-#include "include/visitor.h"
-#include "include/scope.h"
-#include "include/value.h"
-#include "include/token.h"
-#include "include/builtin_functions.h"
-#include "include/diagnostic.h"
+#include "../include/visitor.h"
+#include "../include/scope.h"
+#include "../include/value.h"
+#include "../include/token.h"
+#include "../include/builtin_functions.h"
+#include "../include/diagnostic.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -186,29 +186,20 @@ bool visitorArgumentMatchesType(ast_T* parameter, value_T* argument) {
 }
 
 void visitorReportDiagnostic(visitor_T* visitor, ast_T* node, const char* code, const char* message) {
-    char* ownedCode = calloc(strlen(code) + 1, sizeof(char));
-    char* ownedMessage = calloc(strlen(message) + 1, sizeof(char));
+    sourceLocation_T location = {0};
 
-    if (ownedCode == (void*)0 || ownedMessage == (void*)0) {
-        free(ownedCode);
-        free(ownedMessage);
-        fprintf(stderr, "Failed to allocate diagnostic.\n");
-        exit(EXIT_FAILURE);
+    if (node) {
+        location = node->location;
     }
-
-    strcpy(ownedCode, code);
-    strcpy(ownedMessage, message);
 
     diagnostic_T* diagnostic = diagnosticInit(
         DIAGNOSTIC_RUNTIME,
-        ownedCode,
-        ownedMessage,
-        node->location
+        code,
+        message,
+        location
     );
 
     if (diagnostic == (void*)0) {
-        free(ownedCode);
-        free(ownedMessage);
         fprintf(stderr, "Failed to allocate diagnostic.\n");
         exit(EXIT_FAILURE);
     }
