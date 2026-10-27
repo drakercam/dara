@@ -1,3 +1,4 @@
 programming_language.geany
 **/*.o
 dara.out
+.aider*
