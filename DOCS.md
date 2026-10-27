@@ -1,4 +1,4 @@
-# Dara — Language and Runtime Notes (v0.3)
+# Dara v0.3 — Language and Runtime Notes
 
 This document describes Dara's current language behavior and implementation model. Features described as implemented reflect the current development state. Experimental behavior and future work are identified separately.
 
