@@ -55,7 +55,7 @@ main();
 
 An `auto` variable needs an initializer so that its type can be inferred. Declaring an uninitialized `auto` variable produces runtime diagnostic `E2001`.
 
-The runtime currently stores numeric values using a `double` representation. `int` and `float` are declaration/type names, not separate underlying numeric storage representations. Do not assume that all conversions or type-validation rules are complete.
+The runtime stores numeric values using a `double` representation, while retaining an `int` or `float` runtime type tag. Arithmetic and numeric comparisons accept mixed `int` and `float` operands. When both arithmetic operands are `int`, the result is an `int`; if either operand is `float`, the result is a `float`. Comparisons between either numeric type return `bool`. Integer division remains integer division, so `5 / 2` produces `2`, while `5.0 / 2` produces `2.5`. These promotion rules apply to binary arithmetic and comparisons; they do not imply that every assignment or parameter-binding path performs implicit conversion.
 
 ### 2.2 Control flow and expressions
 
@@ -66,8 +66,8 @@ Implemented syntax includes:
 - `for` loops.
 - `return` statements.
 - Parenthesized expressions.
-- Arithmetic: `+`, `-`, `*`, `/`.
-- Comparisons: `==`, `!=`, `<`, `<=`, `>`, `>=`.
+- Arithmetic: `+`, `-`, `*`, `/`; mixed `int`/`float` operands promote the result to `float`.
+- Numeric comparisons: `==`, `!=`, `<`, `<=`, `>`, `>=`; comparisons accept mixed `int`/`float` operands and return `bool`.
 - Boolean negation: `!`.
 - Boolean literals: `true`, `false`.
 - Assignment: `=`, `+=`, `-=`.
@@ -88,7 +88,7 @@ func main() -> noval {
 main();
 ```
 
-Exact evaluation and coercion rules should be verified before relying on behavior outside tested examples.
+Binary arithmetic and numeric comparisons use the promotion rules described above. Other conversions, including assignment and function-argument conversions, should not be assumed to happen implicitly.
 
 ### 2.3 Constructs and fields
 
@@ -496,7 +496,25 @@ Hello World!
 
 These examples use `std:print()` as the print builtin.
 
-### 7.2 References to nested fields
+### 7.2 Mixed numeric arithmetic
+
+```dara
+func main() -> noval {
+    int whole = 5;
+    float fraction = 2.5;
+
+    std:print(whole + 2);        // int result: 7
+    std:print(whole + fraction); // float result: 7.5
+    std:print(fraction * 2);     // float result: 5.0
+    std:print(5 < fraction);     // boolean result: false
+};
+
+main();
+```
+
+When both operands are integers, arithmetic keeps the integer result type. If either operand is a float, the arithmetic result is a float. Comparisons accept either numeric type and always return a boolean. Integer division remains integer division.
+
+### 7.3 References to nested fields
 
 ```dara
 construct Stats {
@@ -529,7 +547,7 @@ Expected output:
 99
 ```
 
-### 7.3 Reference assignment and value copies
+### 7.4 Reference assignment and value copies
 
 ```dara
 construct Player {
@@ -564,7 +582,6 @@ The following should not be assumed to be implemented language guarantees withou
 - `@private` access enforcement and restrictions on external field mutation need implementation or verification.
 - Recursion and function-call environment isolation need explicit testing.
 - String escape sequences, richer source-location tracking, and complete type/coercion rules need explicit tests.
-- A language-level `typecheck()` builtin should not be considered available until implemented.
 - The standard-library namespace is experimental and is not yet a complete standard library.
 - Not every parser, lexer, and runtime failure necessarily uses the shared diagnostic system yet.
 - Array initialization, supported element types, and cleanup should be tested against the current implementation.

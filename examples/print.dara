@@ -1,32 +1,28 @@
-construct Player {
-	array names;
+construct Sample {
+	int ffa;
 };
 
-Player player = construct Player(
-	.names = std:array(4) -> string
-);
+construct Test {
+	int a;
+	float b;
+	string c;
+	color d;
+	array s;
+	Sample sample;
+};
 
-std:array.add(player.names, "Hello, World!");
-std:array.add(player.names, "Goodbye!");
-std:array.add(player.names, "Whats up!");
-std:array.add(player.names, "Yo yo yo!");
+func main() -> noval {
+	Test test = construct Test();
+	
+	std:print(std:typeof(test.a));
+	std:print(std:typeof(test.b));
+	std:print(std:typeof(test.c));
+	std:print(std:typeof(test.d));
+	std:print(std:typeof(test.s));
+	std:print(std:typeof(test.sample));
+	std:print(std:typeof(test.sample.ffa));	
+};
 
-std:print(std:array.at(player.names, 0));
-std:print(std:array.at(player.names, 1));
-std:print(std:array.at(player.names, 2));
-std:print(std:array.at(player.names, 3));
+std:print("10.01 larger than 10? ", 10.01 > 10);
 
-player.names = std:array(12) -> int;
-
-std:print(std:array.size(player.names));
-std:print(std:array.capacity(player.names));
-
-std:array.add(player.names, "Hello, World!");
-std:array.add(player.names, "Goodbye!");
-std:array.add(player.names, "Whats up!");
-std:array.add(player.names, "Yo yo yo!");
-
-std:print(std:array.at(player.names, 0));
-std:print(std:array.at(player.names, 1));
-std:print(std:array.at(player.names, 2));
-std:print(std:array.at(player.names, 3));
+main();

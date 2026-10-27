@@ -268,6 +268,8 @@ ast_T* parserParseStatement(parser_T* parser, scope_T* scope) {
             strcmp(value, "int") == 0 ||
             strcmp(value, "float") == 0 ||
             strcmp(value, "string") == 0 ||
+            strcmp(value, "bool") == 0 ||
+            strcmp(value, "color") == 0 ||
             strcmp(value, "func") == 0 ||
             strcmp(value, "array") == 0 ||
             strcmp(value, "return") == 0
@@ -649,6 +651,8 @@ ast_T* parserParseID(parser_T* parser, scope_T* scope) {
 		strcmp(parser->currentToken->value, "auto") == 0 ||
 		strcmp(parser->currentToken->value, "int") == 0 ||
 		strcmp(parser->currentToken->value, "string") == 0 ||
+		strcmp(parser->currentToken->value, "bool") == 0 ||
+		strcmp(parser->currentToken->value, "color") == 0 ||
 		strcmp(parser->currentToken->value, "float") == 0 ||
 		strcmp(parser->currentToken->value, "array") == 0
 	) {

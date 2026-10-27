@@ -1,6 +1,6 @@
 # Dara v0.3
 
-Dara is an interpreted programming language written in C. It features explicit types, functions, constructs, namespaces, reference parameters, structured diagnostics, arrays, and native Raylib bindings.
+Dara is an interpreted programming language written in C. It features explicit types, functions, constructs, namespaces, reference parameters, structured diagnostics, arrays, mixed numeric arithmetic, and native Raylib bindings.
 
 ## Features
 
@@ -9,7 +9,7 @@ Dara is an interpreted programming language written in C. It features explicit t
 - **Constructs:** Custom data types, nested fields, designated initialization, and methods.
 - **Namespaces:** Qualified names and function calls, including `std:print()`.
 - **Control flow:** `if`, `while`, and `for`.
-- **Operators:** Arithmetic, comparisons, logical negation, assignment, and compound assignment.
+- **Operators:** Arithmetic, numeric comparisons, logical negation, assignment, and compound assignment. Mixed `int`/`float` arithmetic returns a `float`; integer-only arithmetic remains integer arithmetic.
 - **Arrays:** Typed or `auto` elements, capacity-based allocation, size/capacity queries, insertion, indexed access, removal, range copying, range appending, and explicit multiplicative capacity growth.
 - **Diagnostics:** Lexer, parser, and runtime errors with error codes and source locations.
 - **Memory management:** Runtime value ownership, copying, reference handling, and cleanup.
@@ -74,6 +74,28 @@ std:print(health);
 
 Variables can use explicit types or `auto` to infer their type from an initializer. An uninitialized `auto` variable produces runtime diagnostic `E2001`.
 
+## Mixed numeric arithmetic
+
+Binary arithmetic accepts `int` and `float` operands in any combination. If both operands are integers, the result remains an integer. If either operand is a float, the result is a float. Numeric comparisons also accept mixed operands and return a boolean.
+
+```dara
+func main() -> noval {
+    int whole = 5;
+    float fraction = 2.5;
+
+    std:print(whole + 2);        // 7, int
+    std:print(whole + fraction); // 7.5, float
+    std:print(fraction * 2);     // 5.0, float
+    std:print(5 < fraction);     // false, boolean
+    std:print(5 / 2);            // 2, integer division
+    std:print(5.0 / 2);          // 2.5, floating-point division
+};
+
+main();
+```
+
+This promotion rule describes binary arithmetic and numeric comparisons; it does not mean every assignment or function-argument path implicitly converts between types. Division by zero produces `E2028`; nonnumeric operands produce `E2027`.
+
 ## Functions
 
 Functions declare their return type using `->`. Use `noval` for functions that do not return a useful value.
@@ -132,7 +154,7 @@ Namespaces organize declarations under qualified names. The `:` separator is use
 std:print("Hello, Dara!");
 
 func main() -> noval {
-    std:print("Running Dara v0.2");
+    std:print("Running Dara v0.3");
 };
 
 main();
@@ -163,7 +185,6 @@ Dara arrays have a current size, an allocated capacity, and an element type. Cap
 
 ```dara
 array numbers;
-
 numbers = std:array(2) -> int;
 
 std:array.add(numbers, 10);
@@ -173,11 +194,9 @@ std:print(std:array.size(numbers));       // 2
 std:print(std:array.capacity(numbers));   // 2
 
 std:array.grow(numbers, 2);
-
 std:print(std:array.capacity(numbers));   // 4
 
 std:array.add(numbers, 30);
-
 std:print(std:array.at(numbers, 2));      // 30
 ```
 
@@ -194,11 +213,7 @@ Available operations:
 - `std:array.mend(destination, source, start, end)` — appends a range from another array.
 - `std:array.grow(array, factor)` — multiplies the capacity by the supplied factor.
 
-Array ranges use an inclusive start and exclusive end. For example, `std:array.carve(numbers, 1, 3)` selects indices 1 and 2.
-
-Growth does not change the array's size or discard its existing elements. A growth factor of `2` doubles the capacity: 4 becomes 8, then 16 on the next doubling. `add` and `mend` do not automatically grow arrays; they report an error when the available capacity is insufficient.
-
-Array diagnostics are documented in `ERROR_CODES.md`. Array support is still being stabilized, so validate the relevant runtime paths and memory cleanup with tests before relying on undocumented behavior.
+Array ranges use an inclusive start and exclusive end. Growth does not change the array's size or discard existing elements. A growth factor of `2` doubles capacity. `add` and `mend` do not automatically grow arrays; they report an error when capacity is insufficient. Array diagnostics are documented in `ERROR_CODES.md`. Array support is still being stabilized, so validate runtime paths and memory cleanup with tests.
 
 ## Raylib
 
@@ -235,13 +250,13 @@ Raylib must be installed and available to the native bindings used by the interp
 
 ## Diagnostics and memory management
 
-Dara reports language errors using diagnostic categories, error codes, source locations, and explanatory messages. See `ERROR_CODES.md` for the diagnostic reference.
+Dara reports language errors using diagnostic categories, error codes, source locations, and explanatory messages. See `ERROR_CODES.md` for the diagnostic reference. `E2027` is reported for nonnumeric operands; mixed `int`/`float` numeric operands are valid. `E2028` reports division by zero.
 
 The C runtime manages allocated values and their owned resources. Reference parameters borrow existing storage and must not free the values they reference. Ordinary arguments use value semantics.
 
 ## Documentation
 
-See `Language and Runtime Notes` for the interpreter architecture, language syntax, runtime ownership rules, diagnostics, and implementation details.
+See `Language and Runtime Notes.md` for the interpreter architecture, language syntax, numeric promotion rules, runtime ownership rules, diagnostics, and implementation details.
 
 ## Current limitations
 
