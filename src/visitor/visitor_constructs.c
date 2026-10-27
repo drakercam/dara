@@ -53,6 +53,9 @@ value_T* visitorCreateDefaultConstruct(visitor_T* visitor, scope_T* scope, ast_T
         else if (strcmp(fieldType, "string") == 0) {
             fieldValue = valueInitString("");
         }
+        else if (strcmp(fieldType, "color") == 0) {
+			fieldValue = valueInitColor(0, 0, 0, 255);
+		}
         else if (strcmp(fieldType, "auto") == 0) {
             fieldValue = valueInit(VALUE_NULL);
         }
@@ -226,6 +229,9 @@ value_T* visitorVisitConstructInstantiation(visitor_T* visitor, ast_T* node) {
 		}
 		else if (strcmp(declaredType, "string") == 0) {
 			typeMatches = fieldValue->type == VALUE_STRING;
+		}
+		else if (strcmp(declaredType, "color") == 0) {
+			typeMatches = fieldValue->type == VALUE_COLOR;
 		}
 		else if (strcmp(declaredType, "array") == 0) {
 			typeMatches = fieldValue->type == VALUE_ARRAY;

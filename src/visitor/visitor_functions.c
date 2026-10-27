@@ -155,6 +155,10 @@ value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node) {
 		return builtinFunctionAdd(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
 	}
 	
+	if (strcmp(node->functionCallName, "std:typeof") == 0) {
+		return builtinFunctionTypeof(visitor, node->functionCallArguments[0]);
+	}
+	
 	// raylib
 	if (strcmp(node->functionCallName, "rl:InitWindow") == 0) {
 		return builtinRaylibFuncInitWindow(visitor, node->functionCallArguments, node->functionCallArgumentsSize);

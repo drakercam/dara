@@ -59,7 +59,7 @@ This document records Dara's parser and runtime diagnostic codes. Error codes ar
 | `E2024` | Runtime | Cannot assign a value of a different construct type. | Assign a construct instance whose type matches the target. |
 | `E2025` | Runtime | Invalid assignment target encountered during evaluation. | Assign to a supported variable or construct field. |
 | `E2026` | Runtime | An `if`, `while`, or `for` condition evaluated to a non-boolean value. | Make the condition evaluate to a boolean expression, such as `i < 3` or `true`. |
-| `E2027` | Runtime | Arithmetic operation received operands of incompatible types or nonnumeric values. | Use matching numeric operands, such as two `int` values or two `float` values. |
+| `E2027` | Runtime | Arithmetic or comparison operation received a nonnumeric operand. | Use numeric operands (`int`, `float`, or a mix of both). |
 | `E2028` | Runtime | Division by zero. | Ensure the divisor is not zero before performing division. |
 | `E2029` | Runtime — internal fallback | Unknown arithmetic operator encountered during evaluation. | Check the parser and visitor handling for the arithmetic operator. This is an internal fallback and may not be reachable through valid Dara source code. |
 | `E2030` | Runtime | Logical NOT requires a boolean operand. | Apply `!` to a boolean expression, such as `!true` or `!(number < 10)`. |
@@ -148,8 +148,9 @@ The recognized color constants include `rl:WHITE`, `rl:BLACK`, `rl:RED`, `rl:GRE
 - `E2020`–`E2025` document variable type checking and assignment errors introduced during the earlier cleanup. Verify each individual error path before considering the full set confirmed.
 - `E2026` is used for non-boolean conditions in `if`, `while`, and `for` statements. Runtime emission has been confirmed. Source locations should be tested separately for these control-flow nodes.
 - `E2027`, `E2028`, and `E2030` have been confirmed by runtime tests. Their reported source locations have also been verified with test output.
+- Mixed numeric arithmetic accepts `int` and `float` operands in any combination. Arithmetic returns an `int` when both operands are integers and a `float` when either operand is a float. Numeric comparisons accept mixed operands and return a boolean.
 - `E2029` and `E2031` are internal fallback diagnostics. Their emission paths have not yet been confirmed by runtime tests.
-- `E2032`–`E2040` document function and method call validation, argument binding, return-type checking, and allocation failures. Verify that the corresponding implementation paths emit these codes before considering them confirmed.
+- `E2032`–`E2040` document function and method call validation, argument binding, return-type checking, and allocation failures. Verify that the corresponding implementation paths emit these codes before considering the full set confirmed.
 - Array diagnostics `E2003`–`E2008` remain provisional until their emission paths have been verified.
 - `E2002` must not be reused for array-capacity errors while it remains assigned to undefined variables.
 - Raylib builtin argument failures have not yet been assigned stable structured diagnostic codes.

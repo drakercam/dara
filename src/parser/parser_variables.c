@@ -100,7 +100,9 @@ ast_T* parserParseVariableDefinition(parser_T* parser, scope_T* scope) {
 		strcmp(parser->currentToken->value, "auto") == 0 ||
 		strcmp(parser->currentToken->value, "int") == 0 ||
 		strcmp(parser->currentToken->value, "float") == 0 ||
-		strcmp(parser->currentToken->value, "string") == 0
+		strcmp(parser->currentToken->value, "string") == 0 ||
+		strcmp(parser->currentToken->value, "color") == 0 ||
+		strcmp(parser->currentToken->value, "bool") == 0
 	) {
 		const char* typeName = parser->currentToken->value;
 

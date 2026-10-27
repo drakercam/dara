@@ -478,9 +478,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 			if (strcmp(methodName, "erase") == 0) {
 				size_t index;
 
-				if (!arrayEvaluateIndex(
-					visitor, node->methodCallArguments[1], &index
-				)) {
+				if (!arrayEvaluateIndex(visitor, node->methodCallArguments[1], &index)) {
 					return (void*)0;
 				}
 
@@ -517,12 +515,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 			size_t start;
 			size_t end;
 
-			if (!arrayEvaluateIndex(
-					visitor, node->methodCallArguments[2], &start
-				) ||
-				!arrayEvaluateIndex(
-					visitor, node->methodCallArguments[3], &end
-				)) {
+			if (!arrayEvaluateIndex(visitor, node->methodCallArguments[2], &start) || !arrayEvaluateIndex(visitor, node->methodCallArguments[3], &end)) {
 				valueFree(sourceValue);
 				return (void*)0;
 			}

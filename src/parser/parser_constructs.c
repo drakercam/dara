@@ -214,6 +214,8 @@
 			strcmp(fieldType, "auto") != 0 &&
 			strcmp(fieldType, "int") != 0 &&
 			strcmp(fieldType, "float") != 0 &&
+			strcmp(fieldType, "bool") != 0 &&
+			strcmp(fieldType, "color") != 0 &&
 			strcmp(fieldType, "string") != 0 &&
 			strcmp(fieldType, "array") != 0 &&
 			!parserIsConstructType(scope, fieldType)) {

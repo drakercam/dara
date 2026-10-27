@@ -16,6 +16,12 @@ value_T* builtinFunctionPrint(visitor_T* visitor, ast_T** args, int argsSize);
 value_T* builtinFunctionAdd(visitor_T* visitor, ast_T** args, int argsSize);
 
 /*
+ * 	Checks the type of a variable at runtime and returns a string containing the type name
+ */
+ 
+value_T* builtinFunctionTypeof(visitor_T* visitor, ast_T* arg);
+
+/*
  * Builtin raylib Functions
  */
 value_T* builtinRaylibFuncInitWindow(visitor_T* visitor, ast_T** args, int argsSize);

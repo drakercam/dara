@@ -59,6 +59,7 @@ value_T* visitorVisitCompound(visitor_T* visitor, ast_T* node) {
 
 /*
  * Evaluates arithmetic and comparison operations between numeric values.
+ * Mixed int/float operations promote both operands to float.
  */
 
 value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
@@ -71,17 +72,26 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
         return (void*)0;
     }
 
-    if (left->type != right->type || (left->type != VALUE_INT && left->type != VALUE_FLOAT)) {
-        visitorReportDiagnostic(visitor, node, "E2027", "Arithmetic operations require matching numeric types.");
+    bool leftNumeric = left->type == VALUE_INT || left->type == VALUE_FLOAT;
+    bool rightNumeric = right->type == VALUE_INT || right->type == VALUE_FLOAT;
+
+    if (!leftNumeric || !rightNumeric) {
+        visitorReportDiagnostic(
+            visitor, node, "E2027",
+            "Arithmetic operations require numeric operands."
+        );
         valueFree(left);
         valueFree(right);
         return (void*)0;
     }
-    
-    int isInt = left->type == VALUE_INT;
+
+    // Convert both operands to double for comparisons and mixed arithmetic.
+    double a = left->type == VALUE_INT ? left->intValue : left->floatValue;
+    double b = right->type == VALUE_INT ? right->intValue : right->floatValue;
+
     int op = node->binaryOperationType;
 
-    // Handle comparisons first. They always return bool.
+    // Comparisons always return boolean.
     switch (op) {
         case TOKEN_EQUAL_EQUAL:
         case TOKEN_NOT_EQUAL:
@@ -89,29 +99,33 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
         case TOKEN_MORE:
         case TOKEN_LESS_THAN_EQUAL:
         case TOKEN_MORE_THAN_EQUAL: {
-            double a = isInt ? left->intValue : left->floatValue;
-            double b = isInt ? right->intValue : right->floatValue;
             bool result;
 
             switch (op) {
                 case TOKEN_EQUAL_EQUAL:
                     result = a == b;
                     break;
+
                 case TOKEN_NOT_EQUAL:
                     result = a != b;
                     break;
+
                 case TOKEN_LESS:
                     result = a < b;
                     break;
+
                 case TOKEN_MORE:
                     result = a > b;
                     break;
+
                 case TOKEN_LESS_THAN_EQUAL:
                     result = a <= b;
                     break;
+
                 case TOKEN_MORE_THAN_EQUAL:
                     result = a >= b;
                     break;
+
                 default:
                     result = false;
                     break;
@@ -124,46 +138,46 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
         }
     }
 
-    // Integer arithmetic stays integer arithmetic.
+    // Preserve integer arithmetic only when both operands are integers.
+    bool isInt = left->type == VALUE_INT && right->type == VALUE_INT;
+
     if (isInt) {
-        int a = left->intValue;
-        int b = right->intValue;
+        int intA = left->intValue;
+        int intB = right->intValue;
         int result;
 
         switch (op) {
             case TOKEN_PLUS:
-                result = a + b;
-                break;
-                
             case TOKEN_PLUS_EQUAL:
-                result = a + b;
+                result = intA + intB;
                 break;
 
             case TOKEN_MINUS:
-                result = a - b;
-                break;
-                
             case TOKEN_MINUS_EQUAL:
-                result = a - b;
+                result = intA - intB;
                 break;
 
             case TOKEN_MULTIPLY:
-                result = a * b;
+                result = intA * intB;
                 break;
 
             case TOKEN_DIVIDE:
-                if (b == 0) {
-                    visitorReportDiagnostic(visitor, node, "E2028", "Division by zero.");
+                if (intB == 0) {
+                    visitorReportDiagnostic(
+                        visitor, node, "E2028", "Division by zero."
+                    );
                     valueFree(left);
                     valueFree(right);
                     return (void*)0;
                 }
 
-                result = a / b;
+                result = intA / intB;
                 break;
 
             default:
-                visitorReportDiagnostic(visitor, node, "E2029", "Unknown arithmetic operator.");
+                visitorReportDiagnostic(
+                    visitor, node, "E2029", "Unknown arithmetic operator."
+                );
                 valueFree(left);
                 valueFree(right);
                 return (void*)0;
@@ -171,32 +185,23 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
 
         valueFree(left);
         valueFree(right);
-		
+
         return valueInitInt(result);
     }
 
-    // Floating-point arithmetic stays floating-point.
-    double a = left->floatValue;
-    double b = right->floatValue;
+    // If either operand is a float, return a floating-point result.
     double result;
 
     switch (op) {
-		case TOKEN_PLUS:
-			result = a + b;
-			break;
-			
-		case TOKEN_PLUS_EQUAL:
-			result = a + b;
-			break;
+        case TOKEN_PLUS:
+        case TOKEN_PLUS_EQUAL:
+            result = a + b;
+            break;
 
-		case TOKEN_MINUS:
-			result = a - b;
-			break;
-			
-		case TOKEN_MINUS_EQUAL:
-			result = a - b;
-			left->floatValue = result;
-			break;
+        case TOKEN_MINUS:
+        case TOKEN_MINUS_EQUAL:
+            result = a - b;
+            break;
 
         case TOKEN_MULTIPLY:
             result = a * b;
@@ -204,7 +209,9 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
 
         case TOKEN_DIVIDE:
             if (b == 0.0) {
-                visitorReportDiagnostic(visitor, node, "E2028", "Division by zero.");
+                visitorReportDiagnostic(
+                    visitor, node, "E2028", "Division by zero."
+                );
                 valueFree(left);
                 valueFree(right);
                 return (void*)0;
@@ -214,7 +221,9 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
             break;
 
         default:
-            visitorReportDiagnostic(visitor, node, "E2029", "Unknown arithmetic operator.");
+            visitorReportDiagnostic(
+                visitor, node, "E2029", "Unknown arithmetic operator."
+            );
             valueFree(left);
             valueFree(right);
             return (void*)0;
