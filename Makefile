@@ -1,7 +1,7 @@
 EXEC = dara.out
 CC = gcc
 
-SRCS = $(wildcard src/*.c)
+SRCS = $(shell find src -type f -name '*.c')
 OBJS = $(SRCS:.c=.o)
 
 FLAGS = -g
@@ -16,7 +16,13 @@ $(EXEC): $(OBJS)
 	$(CC) $(OBJS) $(FLAGS) -o $@ $(LIBS)
 
 src/%.o: src/%.c
-	$(CC) $(CFLAGS) $(FLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(FLAGS) -Iinclude -c $< -o $@
+
+src/parser/%.o: src/parser/%.c
+	$(CC) $(CFLAGS) $(FLAGS) -Iinclude -c $< -o $@
+
+src/visitor/%.o: src/visitor/%.c
+	$(CC) $(CFLAGS) $(FLAGS) -Iinclude -c $< -o $@
 
 install: $(EXEC)
 	cp ./$(EXEC) /usr/local/bin/dara

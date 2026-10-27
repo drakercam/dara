@@ -10,7 +10,7 @@ Dara is an interpreted programming language written in C. It features explicit t
 - **Namespaces:** Qualified names and function calls, including `std:print()`.
 - **Control flow:** `if`, `while`, and `for`.
 - **Operators:** Arithmetic, comparisons, logical negation, assignment, and compound assignment.
-- **Arrays:** Capacity-based allocation, typed elements, and size/capacity queries.
+- **Arrays:** Typed or `auto` elements, capacity-based allocation, size/capacity queries, insertion, indexed access, removal, range copying, range appending, and explicit multiplicative capacity growth.
 - **Diagnostics:** Lexer, parser, and runtime errors with error codes and source locations.
 - **Memory management:** Runtime value ownership, copying, reference handling, and cleanup.
 - **Raylib:** Native bindings for window management, drawing, rectangles, and colors.
@@ -159,18 +159,46 @@ Ordinary parameters use copied values, while reference parameters alias existing
 
 ## Arrays
 
-Dara supports arrays with capacity and element-type information.
+Dara arrays have a current size, an allocated capacity, and an element type. Capacity is fixed until explicitly increased with `std:array.grow()`.
 
 ```dara
 array numbers;
 
-numbers = std:array(5) -> int;
+numbers = std:array(2) -> int;
 
-std:print(std:array:size(numbers));
-std:print(std:array:capacity(numbers));
+std:array.add(numbers, 10);
+std:array.add(numbers, 20);
+
+std:print(std:array.size(numbers));       // 2
+std:print(std:array.capacity(numbers));   // 2
+
+std:array.grow(numbers, 2);
+
+std:print(std:array.capacity(numbers));   // 4
+
+std:array.add(numbers, 30);
+
+std:print(std:array.at(numbers, 2));      // 30
 ```
 
-Array size represents the number of stored elements; capacity represents allocated storage. Array initialization and supported operations are still being stabilized, so verify this example against the current runtime.
+The constructor's capacity must be a positive integer. Supported element types include `int`, `float`, `string`, `boolean`, and `auto`. Typed arrays validate inserted values against their declared type; `auto` arrays accept any supported runtime value type.
+
+Available operations:
+
+- `std:array.size(array)` — returns the number of stored elements.
+- `std:array.capacity(array)` — returns the allocated capacity.
+- `std:array.add(array, value)` — appends a copy of a value when capacity permits.
+- `std:array.at(array, index)` — returns a copy of an element.
+- `std:array.erase(array, index)` — removes an element and shifts subsequent elements.
+- `std:array.carve(array, start, end)` — creates a new array from a range.
+- `std:array.mend(destination, source, start, end)` — appends a range from another array.
+- `std:array.grow(array, factor)` — multiplies the capacity by the supplied factor.
+
+Array ranges use an inclusive start and exclusive end. For example, `std:array.carve(numbers, 1, 3)` selects indices 1 and 2.
+
+Growth does not change the array's size or discard its existing elements. A growth factor of `2` doubles the capacity: 4 becomes 8, then 16 on the next doubling. `add` and `mend` do not automatically grow arrays; they report an error when the available capacity is insufficient.
+
+Array diagnostics are documented in `ERROR_CODES.md`. Array support is still being stabilized, so validate the relevant runtime paths and memory cleanup with tests before relying on undocumented behavior.
 
 ## Raylib
 

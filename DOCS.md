@@ -1,4 +1,4 @@
-# Dara — Language and Runtime Notes (v0.2)
+# Dara — Language and Runtime Notes (v0.3)
 
 This document describes Dara's current language behavior and implementation model. Features described as implemented reflect the current development state. Experimental behavior and future work are identified separately.
 
@@ -168,20 +168,96 @@ The exact resolution path depends on whether the qualified name refers to a func
 
 ### 2.5 Arrays
 
-Dara supports array values and a standard array namespace for creating and querying arrays.
+Dara supports array values with a fixed initial capacity, element-type information, and explicit capacity growth through the `std:array` namespace.
+
+#### Creating arrays
 
 ```dara
 array numbers;
 
-numbers = std:array(5) -> int;
-
-std:print(std:array:size(numbers));
-std:print(std:array:capacity(numbers));
+numbers = std:array(4) -> int;
 ```
 
-The constructor accepts a capacity and an element type. Size represents the number of stored elements, while capacity represents allocated storage.
+The optional capacity expression must evaluate to a positive integer. If no capacity is provided, the constructor uses a default capacity of one. Supported element type names include `int`, `float`, `string`, `boolean`, and `auto`.
 
-Array initialization, element types, and available operations should be verified against the current runtime. In particular, do not assume default array initialization is reliable until that path has been tested.
+An explicitly typed array accepts elements matching its declared type. An `auto` array accepts values of any supported runtime value type.
+
+- **Size** is the number of elements currently stored.
+- **Capacity** is the number of element slots allocated.
+- **Element type** determines which values a typed array accepts.
+- **Growth** increases capacity without changing the current size or existing elements.
+
+#### Array operations
+
+Array methods are accessed through `std:array` using the supported method-call syntax.
+
+| Operation | Arguments | Behavior |
+|---|---|---|
+| `std:array.size(array)` | Array | Returns the number of stored elements. |
+| `std:array.capacity(array)` | Array | Returns the allocated capacity. |
+| `std:array.add(array, value)` | Array, value | Appends a copy of the value if its type is compatible and capacity is available. |
+| `std:array.at(array, index)` | Array, integer index | Returns a copy of the element at the specified index. |
+| `std:array.erase(array, index)` | Array, integer index | Removes the element at the index and shifts subsequent elements left. |
+| `std:array.carve(array, start, end)` | Array, start index, end index | Creates a new array containing a copy of the selected range. |
+| `std:array.mend(destination, source, start, end)` | Destination array, source array, start index, end index | Appends copies of a range from the source to the destination. |
+| `std:array.grow(array, factor)` | Array, integer factor | Multiplies the array's capacity by the factor. |
+
+#### Capacity growth
+
+Growth is explicit. `add` and `mend` do not automatically resize an array when capacity is insufficient.
+
+```dara
+array numbers;
+numbers = std:array(2) -> int;
+
+std:array.add(numbers, 10);
+std:array.add(numbers, 20);
+
+std:print(std:array.size(numbers));       // 2
+std:print(std:array.capacity(numbers));   // 2
+
+std:array.grow(numbers, 2);
+
+std:print(std:array.size(numbers));       // 2
+std:print(std:array.capacity(numbers));   // 4
+
+std:array.add(numbers, 30);
+
+std:print(std:array.at(numbers, 2));      // 30
+```
+
+The second argument to `grow` is a multiplication factor, not an amount to add to capacity. For example, growing a capacity of 4 by a factor of 2 produces a capacity of 8. A factor of at least 2 is required. Growth preserves existing elements and does not change the array's size.
+
+#### Array ranges
+
+`carve` and `mend` use half-open ranges: the start index is included, and the end index is excluded. A range from index 1 to index 3 therefore selects elements at indices 1 and 2.
+
+```dara
+array numbers;
+numbers = std:array(4) -> int;
+
+std:array.add(numbers, 10);
+std:array.add(numbers, 20);
+std:array.add(numbers, 30);
+std:array.add(numbers, 40);
+
+array section;
+section = std:array.carve(numbers, 1, 3);
+
+std:print(std:array.size(section));       // 2
+std:print(std:array.at(section, 0));      // 20
+std:print(std:array.at(section, 1));      // 30
+
+std:array.erase(numbers, 1);
+
+std:print(std:array.at(numbers, 1));      // 30
+```
+
+`carve` creates a separate array, so changing the new array does not change the original elements. `mend` copies elements into an existing destination array and fails if the destination does not have enough capacity.
+
+Array indices must be non-negative integers and must refer to valid elements when accessing or removing elements. Array ranges must satisfy `start <= end <= size`.
+
+The runtime manages array storage and owned element values through the value cleanup system. Array operations and their error paths should be tested for correct ownership and cleanup, including failed allocations and nested values.
 
 ### 2.6 Native Raylib bindings
 

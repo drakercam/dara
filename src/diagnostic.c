@@ -19,16 +19,22 @@ static char* diagnosticCopyString(const char* string) {
 	return copy;
 }
 
-diagnostic_T* diagnosticInit(diagnosticCategory_T category, char* code, char* message, sourceLocation_T location) {
+diagnostic_T* diagnosticInit(diagnosticCategory_T category, const char* code, const char* message, sourceLocation_T location) {
 	diagnostic_T* diagnostic = calloc(1, sizeof(diagnostic_T));
 	
 	if (diagnostic == (void*)0) {
 		return (void*)0;
 	}
 	
-	diagnostic->category = category;
 	diagnostic->code = diagnosticCopyString(code);
 	diagnostic->message = diagnosticCopyString(message);
+	
+	if ((code && !diagnostic->code) || (message && !diagnostic->message)) {
+        diagnosticFree(diagnostic);
+        return (void*)0;
+    }
+	
+	diagnostic->category = category;
 	diagnostic->location = location;
 
 	return diagnostic;

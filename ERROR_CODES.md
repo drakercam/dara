@@ -76,19 +76,46 @@ This document records Dara's parser and runtime diagnostic codes. Error codes ar
 
 ## Array runtime diagnostics
 
-The following diagnostics were introduced during development of `std:array`. Their emission paths should be checked against the shared diagnostic system before these codes are considered stable.
-
 | Code | Category | Message / meaning | How to fix |
 |---|---|---|---|
-| `E2002` | Runtime — code conflict | Previously proposed for invalid array capacity, but already assigned to undefined variables. | Keep `E2002` reserved for undefined variables; assign a different code before using it for array capacity errors. |
-| `E2003` | Runtime — provisional | Unsupported array element type. | Use a supported element type, such as `int`, `float`, `string`, `boolean`, or `auto`. |
-| `E2004` | Runtime — provisional | Failed to allocate array storage or element-type metadata. | Check available memory and allocation handling. |
-| `E2005` | Runtime — provisional | `std:array.size()` or `std:array.capacity()` received an incorrect number of arguments. | Supply the expected number of arguments. |
-| `E2006` | Runtime — provisional | An array operation received a value that is not a valid array. | Pass a properly initialized array value. |
-| `E2007` | Runtime — provisional | An array size or capacity exceeds the supported integer range. | Use a value within the supported integer range. |
-| `E2008` | Runtime — provisional | Unknown `std:array` method. | Use a method that is implemented by `std:array`. |
+| `E2003` | Runtime | Unsupported array element type. | Use `int`, `float`, `string`, `boolean`, or `auto`. |
+| `E2004` | Runtime | Failed to allocate array storage or copy array data. | Check available memory and ensure allocation failures are handled correctly. |
+| `E2005` | Runtime | Array method called with the wrong number of arguments. | Supply the required number of arguments for the selected method. |
+| `E2006` | Runtime | An array operation received a value that is not a valid array. | Pass a properly initialized array. |
+| `E2007` | Runtime | Array size or capacity exceeds the supported integer return range. | Keep the result within the supported integer range. |
+| `E2008` | Runtime | Unknown `std:array` method. | Use an implemented array method. |
+| `E2041` | Runtime | Array index is not an integer. | Supply an integer index. |
+| `E2042` | Runtime | Array index is negative. | Supply a non-negative index. |
+| `E2043` | Runtime | Array mutation requires an assignable array variable or field. | Pass an array variable or supported member-access expression. |
+| `E2044` | Runtime | Value type does not match the array element type. | Supply a value compatible with the destination array's element type. |
+| `E2045` | Runtime | Array capacity exceeded. | Grow the destination array or provide sufficient initial capacity. |
+| `E2046` | Runtime | Array index is out of bounds. | Use an index from zero through `size - 1`. |
+| `E2047` | Runtime | Invalid array range. | Ensure `start <= end <= size`. |
+| `E2048` | Runtime | Array growth factor must be an integer greater than or equal to two. | Supply an integer factor of at least two. |
+| `E2049` | Runtime | Array capacity must be a positive integer. | Supply a positive integer capacity when creating the array. |
 
-**Important:** `E2003`–`E2008` are provisional documentation entries based on the array implementation work. Verify that each code is actually emitted by the corresponding runtime path before treating it as implemented. The array-capacity checks previously used `E2002`, which conflicts with the existing undefined-variable assignment.
+Array ranges use the half-open interval `[start, end)`. The `carve` method creates a copy of the selected range, while `mend` appends copies of a source range to a destination array.
+
+The `grow` method multiplies the existing capacity by the supplied growth factor. It does not change the array's size or automatically grow the array during insertion.
+
+`E2002` remains reserved for undefined-variable errors and must not be used for array-capacity validation.
+
+### Implementation consistency
+
+The array diagnostic codes above are the intended documentation assignments, not confirmation that the current source emits each code. Before considering them implemented, align the visitor with this table:
+
+- Index type validation should emit `E2041`.
+- Negative-index validation should emit `E2042`.
+- Mutable-target validation should emit `E2043`.
+- Element-type mismatch should emit `E2044`.
+- Capacity exhaustion should emit `E2045`.
+- Index bounds errors should emit `E2046`.
+- Invalid `carve` and `mend` ranges should emit `E2047`.
+- An invalid `grow` factor should emit `E2048`.
+
+The existing visitor draft uses some of these numbers for different array errors, so its diagnostic strings and codes need to be updated together. Do not change the established meanings of `E2036`–`E2040`.
+
+Allocation failures may use `E2004` only where the corresponding allocation path is actually wired to the shared diagnostic reporter. The constructor's invalid-capacity diagnostic also needs its own unused code before it can be documented as an implemented structured diagnostic.
 
 ## Native builtin errors
 

@@ -32,8 +32,7 @@ typedef struct DIAGNOSTIC_STRUCT {
  *  creates a diagnostic error or warning
  */ 
 
-diagnostic_T* diagnosticInit(diagnosticCategory_T category, char* code, char* message, sourceLocation_T location);
-
+diagnostic_T* diagnosticInit(diagnosticCategory_T category, const char* code, const char* message, sourceLocation_T location);
 void diagnosticPrint(const diagnostic_T* diagnostic, const char* filename);
 
 void diagnosticFree(diagnostic_T* diagnostic);

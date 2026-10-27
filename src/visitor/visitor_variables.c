@@ -1,8 +1,8 @@
-#include "include/visitor.h"
-#include "include/scope.h"
-#include "include/value.h"
-#include "include/token.h"
-#include "include/builtin_functions.h"
+#include "../include/visitor.h"
+#include "../include/scope.h"
+#include "../include/value.h"
+#include "../include/token.h"
+#include "../include/builtin_functions.h"
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -65,14 +65,14 @@ value_T* builtinFunctionAdd(visitor_T* visitor, ast_T** args, int argsSize) {
 
     value_T* first = visitorVisit(visitor, args[0]);
 
-    if (first == (void*)0) {
+    if (!first) {
         return (void*)0;
     }
 
     if (first->type != VALUE_INT && first->type != VALUE_FLOAT) {
-        printf("ERROR::BUILTIN::ADD: Expected numeric arguments\n");
+		visitorReportDiagnostic(visitor, args[0], "E3001", "Expected numeric arguments.");
         valueFree(first);
-        exit(1);
+        return (void*)0;
     }
 
     int resultInt = 0;
@@ -90,14 +90,14 @@ value_T* builtinFunctionAdd(visitor_T* visitor, ast_T** args, int argsSize) {
     for (int i = 1; i < argsSize; ++i) {
         value_T* value = visitorVisit(visitor, args[i]);
 
-        if (value == NULL) {
+        if (value == (void*)0) {
             continue;
         }
 
         if (value->type != resultType) {
-            printf("ERROR::BUILTIN::ADD: Arguments must have matching numeric types\n");
+			visitorReportDiagnostic(visitor, args[i], "E3002", "Arguments must have matching numeric types.");
             valueFree(value);
-            exit(1);
+            return (void*)0;
         }
 
         if (resultType == VALUE_INT) {
@@ -121,8 +121,8 @@ value_T* builtinFunctionAdd(visitor_T* visitor, ast_T** args, int argsSize) {
  */
 value_T* builtinRaylibFuncInitWindow(visitor_T* visitor, ast_T** args, int argsSize) {
 	if (argsSize != 3) {
-	 printf("Runtime Error: rl:InitWindow expects 3 arguments, received %d\n", argsSize);
-	 exit(EXIT_FAILURE);
+		visitorReportDiagnostic(visitor, args[0], "E3003", "rl:InitWindow expects 3 arguments");
+		return (void*)0;
 	}
 
 	// we expect a width, length, and title for the function call
@@ -143,13 +143,12 @@ value_T* builtinRaylibFuncInitWindow(visitor_T* visitor, ast_T** args, int argsS
 	}
 
 	if (width->type != VALUE_INT || height->type != VALUE_INT || title->type != VALUE_STRING) {
-		printf("Runtime Error: rl:InitWindow expects (int, int, string)\n");
-		
+		visitorReportDiagnostic(visitor, args[0], "E3004", "rl:InitWindow expects (int, int, string)");
 		valueFree(width);
         valueFree(height);
         valueFree(title);
 		
-		exit(EXIT_FAILURE);
+		return (void*)0;
 	}
 	
 	InitWindow(width->intValue, height->intValue, title->stringValue);
@@ -161,8 +160,8 @@ value_T* builtinRaylibFuncInitWindow(visitor_T* visitor, ast_T** args, int argsS
 
 value_T* builtinRaylibFuncWindowShouldClose(visitor_T* visitor, ast_T** args, int argsSize) {
 	if (argsSize != 0) {
-		printf("Runtime Error: rl:WindowShouldClose expects 0 arguments\n");
-		exit(EXIT_FAILURE);
+		printf("DEBUG RUNTIME ERROR: rl:WindowShouldClose expects 0 arguments\n");
+		return (void*)0;
 	}
 	
 	value_T* result = valueInit(VALUE_BOOLEAN);
@@ -173,8 +172,8 @@ value_T* builtinRaylibFuncWindowShouldClose(visitor_T* visitor, ast_T** args, in
 
 value_T* builtinRaylibFuncBeginDrawing(visitor_T* visitor, ast_T** args, int argsSize) {
 	if (argsSize != 0) {
-        printf("Runtime Error: rl:BeginDrawing expects 0 arguments\n");
-        exit(1);
+        printf("DEBUG RUNTIME ERROR: rl:BeginDrawing expects 0 arguments\n");
+        return (void*)0;
     }
 
     BeginDrawing();
@@ -184,8 +183,8 @@ value_T* builtinRaylibFuncBeginDrawing(visitor_T* visitor, ast_T** args, int arg
 
 value_T* builtinRaylibFuncEndDrawing(visitor_T* visitor, ast_T** args, int argsSize) {
 	if (argsSize != 0) {
-        printf("Runtime Error: rl:EndDrawing expects 0 arguments\n");
-        exit(1);
+        printf("DEBUG RUNTIME ERROR: rl:EndDrawing expects 0 arguments\n");
+        return (void*)0;
     }
 
     EndDrawing();
@@ -195,8 +194,8 @@ value_T* builtinRaylibFuncEndDrawing(visitor_T* visitor, ast_T** args, int argsS
 
 value_T* builtinRaylibFuncCloseWindow(visitor_T* visitor, ast_T** args, int argsSize) {
 	if (argsSize != 0) {
-        printf("Runtime Error: rl:CloseWindow expects 0 arguments\n");
-        exit(1);
+        printf("DEBUG RUNTIME ERROR: rl:CloseWindow expects 0 arguments\n");
+        return (void*)0;
     }
 
     CloseWindow();
@@ -206,10 +205,8 @@ value_T* builtinRaylibFuncCloseWindow(visitor_T* visitor, ast_T** args, int args
 
 value_T* builtinRaylibFuncClearBackground(visitor_T* visitor, ast_T** args, int argsSize) {
 	if (argsSize != 1) {
-        printf(
-            "Runtime Error: rl:ClearBackground expects 1 argument\n"
-        );
-        exit(EXIT_FAILURE);
+        printf("DEBUG RUNTIME ERROR: rl:ClearBackground expects 1 argument\n");
+        return (void*)0;
     }
 
     value_T* color = visitorVisit(visitor, args[0]);
@@ -219,11 +216,9 @@ value_T* builtinRaylibFuncClearBackground(visitor_T* visitor, ast_T** args, int 
     }
 
     if (color->type != VALUE_COLOR) {
-        printf(
-            "Runtime Error: rl:ClearBackground expects a color argument\n"
-        );
+        printf("DEBUG RUNTIME ERROR: rl:ClearBackground expects a color argument\n");
         valueFree(color);
-        exit(EXIT_FAILURE);
+        return (void*)0;
     }
 
     ClearBackground((Color) {
@@ -240,8 +235,8 @@ value_T* builtinRaylibFuncClearBackground(visitor_T* visitor, ast_T** args, int 
 
 value_T* builtinRaylibFuncDrawRectangle(visitor_T* visitor, ast_T** args, int argsSize) {
 	if (argsSize != 5) {
-        printf("Runtime Error: rl:DrawRectangle() expects 5 arguments.\n");
-        exit(EXIT_FAILURE);
+        printf("DEBUG RUNTIME ERROR: rl:DrawRectangle() expects 5 arguments.\n");
+        return (void*)0;
     }
 
     value_T* x = visitorVisit(visitor, args[0]);
@@ -257,7 +252,7 @@ value_T* builtinRaylibFuncDrawRectangle(visitor_T* visitor, ast_T** args, int ar
         color->type != VALUE_COLOR) {
 
         printf(
-            "Runtime Error: rl:DrawRectangle() expects "
+            "DEBUG RUNTIME ERROR: rl:DrawRectangle() expects "
             "(int, int, int, int, color).\n"
         );
 
@@ -267,7 +262,7 @@ value_T* builtinRaylibFuncDrawRectangle(visitor_T* visitor, ast_T** args, int ar
         valueFree(height);
         valueFree(color);
 
-        exit(EXIT_FAILURE);
+        return (void*)0;
     }
 
     Color raylibColor = {
