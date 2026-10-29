@@ -173,6 +173,10 @@ bool visitorArgumentMatchesType(ast_T* parameter, value_T* argument) {
     if (strcmp(type, "string") == 0) {
         return argument->type == VALUE_STRING;
     }
+    
+    if (strcmp(type, "array") == 0) {
+		return argument->type == VALUE_ARRAY;
+	}
 
     // A non-builtin type should match a construct's name.
     if (argument->type == VALUE_CONSTRUCT) {

@@ -4,10 +4,10 @@ Dara is an interpreted programming language written in C. It features explicit t
 
 ## Features
 
-- **Types:** `int`, `float`, `string`, `bool`, `auto`, and `noval`.
-- **Functions:** Typed parameters, return types, and reference parameters.
+- **Types:** `int`, `float`, `string`, `bool`, `auto`, `array`, `construct` and `noval`.
+- **Functions:** Typed parameters, return types, and reference parameters. All types are supported return type parameters
 - **Constructs:** Custom data types, nested fields, designated initialization, and methods.
-- **Namespaces:** Qualified names and function calls, including `std:print()`.
+- **Namespaces:** Provides grouping of related data, creating qualified functions and constructs. Internal builtin functions are registered into their designated namespaces.
 - **Control flow:** `if`, `while`, and `for`.
 - **Operators:** Arithmetic, numeric comparisons, logical negation, assignment, and compound assignment. Mixed `int`/`float` arithmetic returns a `float`; integer-only arithmetic remains integer arithmetic.
 - **Arrays:** Typed or `auto` elements, capacity-based allocation, size/capacity queries, insertion, indexed access, removal, range copying, range appending, and explicit multiplicative capacity growth.
@@ -113,9 +113,79 @@ greet("Dara");
 std:print(multiply(6, 7));
 ```
 
+Functions can return any return type. Special case returns include the following types: `auto`, `construct`.
+
+A function marked with the `auto` return type can return any supported dara type, providing the ability to write generic functions dependent on type.
+
+```dara
+func anyReturn(int x) -> auto {
+    if (x > 5) {
+		return 5;
+	}
+	else {
+		return 0.0;
+	}
+};
+
+float y = anyReturn(1);
+```
+
+A function marked with the `construct` return type can return ANY construct, providing the ability to write generic construct based functions dependent of type.
+
+```dara
+construct Player {
+	int a;
+};
+
+construct Enemy {
+	int b;
+};
+
+func constructReturn(int x) -> construct {
+    if (x > 5) {
+		return construct Player(.a = x);
+	}
+	else {
+		return construct Enemy(.b = x);
+	}
+};
+
+anyReturn(1);
+```
+
+To note, a function marked with a specific `<construct name>` can ONLY return that specific construct type. The same rules apply to arrays in terms of storage.
+
+```dara
+construct Player {
+	int a;
+};
+
+func constructReturn() -> Player {
+    return construct Player(.a = 10);
+};
+
+Player player = constructReturn();
+```
+
+One more note. Currently, namespaces restricts return access to their internally defined constructs to only be allowed with other functions defined inside the namespace. The below will fail.
+
+```dara
+namespace test {
+    construct Player {
+        int x;
+    };
+};
+
+func returnTestNamespacePlayer() -> test:Player {
+    return construct test:Player(.x = 10);
+};
+
+test:Player = returnTestNamespacePlayer();
+```
+
 ## Constructs and methods
 
-Constructs define custom data types with fields and methods. Fields can contain other constructs.
+Constructs define custom data types with fields and methods. Fields can contain other constructs. All specific rules for functions apply to construct methods.
 
 ```dara
 construct Stats {
@@ -160,7 +230,27 @@ func main() -> noval {
 main();
 ```
 
-`std:print()` is the standard print builtin. Other standard-library functionality remains experimental.
+Namespaces are implemented so they can be extended whenever necessary. For example, you can define a namespace test and incorporate different methods:
+
+```dara
+namespace test {
+	func returnNothing1() -> noval {
+		return;
+	};
+};
+
+namespace test {
+	func returnNothing2() -> noval {
+		return;
+	};
+};
+
+test:returnNothing1();
+test:returnNothing2();
+```
+
+`std:print()` is the standard print builtin.
+`std:typeof()` is the standard type check builtin, it returns a string representing the targets type.
 
 ## Reference parameters
 
@@ -253,10 +343,6 @@ Raylib must be installed and available to the native bindings used by the interp
 Dara reports language errors using diagnostic categories, error codes, source locations, and explanatory messages. See `ERROR_CODES.md` for the diagnostic reference. `E2027` is reported for nonnumeric operands; mixed `int`/`float` numeric operands are valid. `E2028` reports division by zero.
 
 The C runtime manages allocated values and their owned resources. Reference parameters borrow existing storage and must not free the values they reference. Ordinary arguments use value semantics.
-
-## Documentation
-
-See `Language and Runtime Notes.md` for the interpreter architecture, language syntax, numeric promotion rules, runtime ownership rules, diagnostics, and implementation details.
 
 ## Current limitations
 
