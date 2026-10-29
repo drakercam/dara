@@ -1,14 +1,31 @@
-namespace game {
-    func first() -> noval {
-        std:print("First");
+namespace test {
+    construct Player {
+        int x;
     };
 };
 
-namespace game {
-    func second() -> noval {
-        std:print("Second");
-    };
+func returnTestNamespacePlayer() -> test:Player {
+    return construct test:Player(.x = 10);
 };
 
-game:first();
-game:second();
+test:Player = returnTestNamespacePlayer();
+
+array numbers = std:array(4) -> int;
+
+std:array.add(numbers, 1);
+std:array.add(numbers, 2);
+std:array.add(numbers, 3);
+
+func editCopy(array a) -> noval {
+    std:array.add(a, 4);
+};
+
+func editDeep(array& a) -> noval {
+    std:array.add(a, 4);
+};
+
+editCopy(numbers);
+std:print("[", std:array.size(numbers), "]");
+
+editDeep(numbers);
+std:print("[", std:array.size(numbers), "]");
