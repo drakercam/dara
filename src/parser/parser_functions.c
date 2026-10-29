@@ -55,6 +55,7 @@ ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope) {
                 strcmp(firstName, "float") == 0 ||
                 strcmp(firstName, "string") == 0 ||
                 strcmp(firstName, "auto") == 0 ||
+                strcmp(firstName, "bool") == 0 ||
                 strcmp(firstName, "var") == 0
             ) {
                 const char* typeName =
@@ -152,12 +153,28 @@ ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope) {
 	}
 
 	char* returnType = parser->currentToken->value;
-
-	if (strcmp(returnType, "int") != 0 &&
-		strcmp(returnType, "float") != 0 &&
-		strcmp(returnType, "string") != 0 &&
-		strcmp(returnType, "noval") != 0) {
-
+	
+	bool isBuiltinType = strcmp(returnType, "int") == 0 ||
+						 strcmp(returnType, "float") == 0 ||
+						 strcmp(returnType, "string") == 0 ||
+						 strcmp(returnType, "bool") == 0 ||
+						 strcmp(returnType, "noval") == 0 ||
+						 strcmp(returnType, "construct") == 0 ||
+						 strcmp(returnType, "color") == 0 ||
+						 strcmp(returnType, "auto") == 0;
+						 
+	bool isConstructReturnType = false;
+	
+	if (!isBuiltinType) {
+		if (strchr(returnType, ':') != (void*)0) {
+			isConstructReturnType = scopeGetQualifiedConstructDefinition(scope, returnType) != (void*)0;
+		}
+		else {
+			isConstructReturnType = scopeGetConstructDefinition(scope, returnType) != (void*)0;
+		}
+	}
+	
+	if (!isBuiltinType && !isConstructReturnType) {
 		char message[256];
 
 		snprintf(
@@ -208,8 +225,10 @@ ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope) {
  */
 
 ast_T* parserParseReturnStatement(parser_T* parser, scope_T* scope) {
-	parserEat(parser, TOKEN_ID);	// return
 	ast_T* returnStatement = astInit(AST_RETURN);
+	parserSetNodeLocation(returnStatement, parser->currentToken);
+	
+	parserEat(parser, TOKEN_ID);	// return
 	
 	returnStatement->scope = scope;
 	

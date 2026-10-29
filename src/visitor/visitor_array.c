@@ -47,10 +47,26 @@ value_T* visitorVisitArrayConstructor(visitor_T* visitor, ast_T* node) {
         elementType = VALUE_STRING;
     } else if (strcmp(elementTypeName, "boolean") == 0) {
         elementType = VALUE_BOOLEAN;
+    } else if (strcmp(elementTypeName, "color") == 0) {
+		elementType = VALUE_COLOR;
+	} else if (strcmp(elementTypeName, "construct") == 0) {
+		elementType = VALUE_CONSTRUCT;
     } else {
-        visitorReportDiagnostic(visitor, node, "E2003", "Unsupported array element type.");
-
-        return (void*)0;
+		
+		ast_T* constructDefinition = (void*)0;
+		if (strchr(elementTypeName, ':') != (void*)0) {
+			constructDefinition = scopeGetQualifiedConstructDefinition(node->scope, elementTypeName);
+		}
+		else {
+			constructDefinition = scopeGetConstructDefinition(node->scope, elementTypeName);
+		}
+		
+		if (!constructDefinition) {
+			visitorReportDiagnostic(visitor, node, "E2003", "Unsupported array element type.");
+			return (void*)0;
+		}
+		
+		elementType = VALUE_CONSTRUCT;
     }
 
     array_T* array = calloc(1, sizeof(array_T));
@@ -103,20 +119,34 @@ value_T* visitorVisitArrayConstructor(visitor_T* visitor, ast_T* node) {
 /*
  * Checks whether a value is compatible with an array's element type.
  */
-static bool arrayElementMatchesType(
-    const array_T* array,
-    const value_T* value
-) {
-    if (!array || !value) {
-        return false;
-    }
+static bool arrayElementMatchesType(const array_T* array, const value_T* value) {
+    if (!array || !value) { return false; }
 
     // "auto" arrays accept any value type.
     if (array->elementType == VALUE_NULL) {
         return true;
     }
+    
+    // the runtime value must match the expected value category.
+    if (array->elementType != value->type) {
+		return false;
+	}
+	
+	// generic construct arrays accept any construct type
+	if (array->elementType == VALUE_CONSTRUCT) {
+		if (strcmp(array->elementTypeName, "construct") == 0) {
+			return true;
+		}
+		
+		// named construct arrays can only accept their own type
+		if (value->constructValue.name == (void*)0) {
+			return false;
+		}
+		
+		return strcmp(array->elementTypeName, value->constructValue.name) == 0;
+	}
 
-    return array->elementType == value->type;
+    return true;
 }
 
 /*
@@ -128,7 +158,7 @@ static array_T* arrayCreateLike(
     size_t capacity
 ) {
     if (!source) {
-        return NULL;
+        return (void*)0;
     }
 
     if (capacity == 0) {
@@ -138,14 +168,14 @@ static array_T* arrayCreateLike(
     array_T* result = calloc(1, sizeof(array_T));
 
     if (!result) {
-        return NULL;
+        return (void*)0;
     }
 
     result->elements = calloc(capacity, sizeof(value_T*));
 
     if (!result->elements) {
         free(result);
-        return NULL;
+        return (void*)0;
     }
 
     size_t typeNameLength = strlen(source->elementTypeName);
@@ -158,7 +188,7 @@ static array_T* arrayCreateLike(
     if (!result->elementTypeName) {
         free(result->elements);
         free(result);
-        return NULL;
+        return (void*)0;
     }
 
     memcpy(

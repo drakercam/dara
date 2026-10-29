@@ -122,7 +122,8 @@ value_T* visitorVisitVariableDefinition(visitor_T* visitor, ast_T* node) {
 		typeMatches = value->type == VALUE_ARRAY;
 	}
 	
-	else if (strcmp(declaredType, "auto") != 0) {
+	else if (strcmp(declaredType, "auto") != 0 &&
+			 strcmp(declaredType, "construct") != 0) {
 		ast_T* constructDefinition = scopeGetQualifiedConstructDefinition(node->scope, declaredType);
 		
 		if (constructDefinition == (void*)0) {
