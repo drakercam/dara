@@ -206,12 +206,22 @@ ast_T* scopeAddConstructDefinition(scope_T* scope, ast_T* constructDef) {
 }
 
 ast_T* scopeGetConstructDefinition(scope_T* scope, const char* constructName) {
-	for (size_t i = 0; i < scope->constructDefinitionsSize; ++i) {
-		ast_T* constructDef = scope->constructDefinitions[i];
-		
-		if (strcmp(constructDef->constructDefinitionName, constructName) == 0) {
-			return constructDef;
+	if (!constructName) {
+		return (void*)0;
+	}
+	
+	scope_T* currentScope = scope;
+	
+	while (currentScope != (void*)0) {
+		for (size_t i = 0; i < scope->constructDefinitionsSize; ++i) {
+			ast_T* constructDef = scope->constructDefinitions[i];
+			
+			if (strcmp(constructDef->constructDefinitionName, constructName) == 0) {
+				return constructDef;
+			}
 		}
+		
+		currentScope = currentScope->parent;
 	}
 	
 	return (void*)0;
@@ -237,10 +247,7 @@ ast_T* scopeAddNamespaceDefinition(scope_T* scope, ast_T* namespaceDef) {
     return namespaceDef;
 }
 
-ast_T* scopeGetNamespaceDefinition(
-    scope_T* scope,
-    const char* namespaceName
-) {
+ast_T* scopeGetNamespaceDefinition(scope_T* scope, const char* namespaceName) {
     for (size_t i = 0; i < scope->namespaceDefinitionsSize; ++i) {
         ast_T* namespaceDef = scope->namespaceDefinitions[i];
 

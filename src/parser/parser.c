@@ -415,6 +415,7 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 				}
 
 				ast_T* methodCall = astInit(AST_METHOD_CALL);
+				methodCall->location = startLocation;
 				methodCall->methodCallConstructName = constructName;
 
 				methodCall->methodCallName = calloc(
@@ -531,6 +532,7 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
                     }
 
                     ast_T* methodCall = astInit(AST_METHOD_CALL);
+                    methodCall->location = object->location;
 
                     methodCall->methodCallConstructName = calloc(
                         strlen(object->variableName) + 1,

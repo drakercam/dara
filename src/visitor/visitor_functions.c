@@ -269,8 +269,22 @@ value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node) {
 	else if (strcmp(returnType, "string") == 0) {
 		validReturn = result->type == VALUE_STRING;
 	}
+	else if (strcmp(returnType, "bool") == 0) {
+		validReturn = result->type == VALUE_BOOLEAN;
+	}
 	else if (strcmp(returnType, "array") == 0) {
 		validReturn = result->type == VALUE_ARRAY;
+	}
+	else if (strcmp(returnType, "construct") == 0) {
+		validReturn = didReturn && result->type == VALUE_CONSTRUCT;
+	}
+	else if (strcmp(returnType, "color") == 0) {
+		validReturn = didReturn && result->type == VALUE_COLOR;
+	}
+	else {
+		validReturn = result->type == VALUE_CONSTRUCT &&
+					  result->constructValue.name != (void*)0 &&
+					  strcmp(returnType, result->constructValue.name) == 0;
 	}
 
 	if (!validReturn) {
@@ -435,8 +449,22 @@ value_T* visitorVisitMethodCall(visitor_T* visitor, ast_T* node) {
 	else if (strcmp(returnType, "string") == 0) {
 		validReturn = didReturn && result->type == VALUE_STRING;
 	}
+	else if (strcmp(returnType, "bool") == 0) {
+		validReturn = didReturn && result->type == VALUE_BOOLEAN;
+	}
 	else if (strcmp(returnType, "array") == 0) {
 		validReturn = didReturn && result->type == VALUE_ARRAY;
+	}
+	else if (strcmp(returnType, "construct") == 0) {
+		validReturn = didReturn && result->type == VALUE_CONSTRUCT;
+	}
+	else if (strcmp(returnType, "color") == 0) {
+		validReturn = didReturn && result->type == VALUE_COLOR;
+	}
+	else {
+		validReturn = result->type == VALUE_CONSTRUCT &&
+					  result->constructValue.name != (void*)0 &&
+					  strcmp(returnType, result->constructValue.name) == 0;
 	}
 
 	if (!validReturn) {

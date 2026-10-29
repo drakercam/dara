@@ -37,7 +37,7 @@ ast_T* parserParseArrayConstructor(parser_T* parser, scope_T* scope, sourceLocat
 	if (arrayConstructor->arrayConstructorElementType == (void*)0) {
 		astFree(arrayConstructor);
 		fprintf(stderr, "Failed to allocate array element type.\n");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	strcpy(arrayConstructor->arrayConstructorElementType, elementType);
