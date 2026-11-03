@@ -149,6 +149,16 @@ variable_T* scopeGetVariable(scope_T* scope, const char* name) {
     return (void*)0;
 }
 
+variable_T* scopeAddConstant(scope_T* scope, const char* name, value_T* value) {
+	variable_T* var = scopeAddVariableWithOwnership(scope, name, value, true);
+	
+	if (var) {
+		var->isReadOnly = true;
+	}
+	
+	return var;
+}
+
 void scopeRemoveVariables(scope_T* scope, size_t count) {
 	if (scope == (void*)0) {
 		return;

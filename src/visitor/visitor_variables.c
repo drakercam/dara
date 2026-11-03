@@ -141,8 +141,20 @@ value_T* visitorVisitVariableDefinition(visitor_T* visitor, ast_T* node) {
 		return (void*)0;
 	}
 	
-	scopeAddVariable(node->scope, node->variableDefinitionVariableName, value);
-
+	if (node->variableDefinitionIsConstant) {
+		scopeAddConstant(
+			node->scope,
+			node->variableDefinitionVariableName,
+			value
+		);
+	} else {
+		scopeAddVariable(
+			node->scope,
+			node->variableDefinitionVariableName,
+			value
+		);
+	}
+	
     return (void*)0;
 }
 
@@ -178,27 +190,66 @@ value_T* visitorVisitVariable(visitor_T* visitor, ast_T* node) {
 }
 
 /*
+ * Resolves the root variable of an assignment target.
+ * For member access, recursively follows the object until
+ * reaching the variable that owns the construct.
+ */
+static variable_T* visitorGetAssignmentRootVariable(ast_T* target) {
+    if (!target) {
+        return (void*)0;
+    }
+
+    if (target->type == AST_VARIABLE) {
+        return scopeGetVariable(
+            target->scope,
+            target->variableName
+        );
+    }
+
+    if (target->type == AST_MEMBER_ACCESS) {
+        return visitorGetAssignmentRootVariable(
+            target->memberAccessObject
+        );
+    }
+
+    return (void*)0;
+}
+
+/*
  * Resolves a variable or construct field to its actual stored value.
  * Used by assignment and reference parameters.
  */
 
 value_T* visitorVisitAssignment(visitor_T* visitor, ast_T* node) {
     ast_T* target = node->assignmentTarget;
+    
+    // resolve the target before evaluating the RHS
+    value_T* oldValue = visitorGetAssignmentTargetValue(visitor, target);
+    
+    if (!oldValue) {
+		return (void*)0;
+	}
+	
+	// A constant variable and all of its construct fields are immutable.
+	variable_T* rootVariable = visitorGetAssignmentRootVariable(target);
 
+	if (rootVariable && rootVariable->isReadOnly) {
+		visitorReportDiagnostic(
+			visitor,
+			node,
+			"E2050",
+			"Cannot assign to a constant variable."
+		);
 
-    // Evaluate the right-hand side first.
+		return (void*)0;
+	}
+
+    // Evaluate the right-hand side.
     value_T* newValue = visitorVisit(visitor, node->assignmentValue);
 
     if (!newValue) {
         return (void*)0;
     }
-    
-    value_T* oldValue = visitorGetAssignmentTargetValue(visitor, target);
-    
-    if (!oldValue) {
-		valueFree(newValue);
-		return (void*)0;
-	}
 
     // Compound assignment combines the existing target value with
     // the evaluated right-hand value.

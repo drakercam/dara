@@ -37,6 +37,31 @@ value_T* visitorVisitNamespaceDefinition(visitor_T* visitor, ast_T* node) {
 	return (void*)0;
 }
 
+/*
+ * Resolves the root variable of an argument.
+ * Member access recursively follows the object to its owning binding.
+ */
+static variable_T* visitorGetArgumentRootVariable(ast_T* argument) {
+    if (!argument) {
+        return NULL;
+    }
+
+    if (argument->type == AST_VARIABLE) {
+        return scopeGetVariable(
+            argument->scope,
+            argument->variableName
+        );
+    }
+
+    if (argument->type == AST_MEMBER_ACCESS) {
+        return visitorGetArgumentRootVariable(
+            argument->memberAccessObject
+        );
+    }
+
+    return NULL;
+}
+
 static bool visitorBindArguments(visitor_T* visitor, ast_T* callNode, ast_T** parameters, size_t parameterCount, ast_T** arguments, size_t argumentCount, scope_T* targetScope, const char* callName) {
 	if (parameterCount != argumentCount) {
 		char message[256];
@@ -82,6 +107,27 @@ static bool visitorBindArguments(visitor_T* visitor, ast_T* callNode, ast_T** pa
 				return false;
 			}
 
+			variable_T* rootVariable = visitorGetArgumentRootVariable(argumentNode);
+
+			/*
+			 * A mutable reference cannot bind to a constant variable.
+			 * Const references are allowed to bind to either.
+			 */
+			if (rootVariable &&
+				rootVariable->isReadOnly &&
+				!parameter->variableDefinitionIsConstant) {
+
+				visitorReportDiagnostic(
+					visitor,
+					argumentNode,
+					"E2050",
+					"Cannot bind a constant variable to a mutable reference parameter."
+				);
+
+				scopeRemoveVariables(targetScope, boundCount);
+				return false;
+			}
+
 			argument = visitorGetAssignmentTargetValue(visitor, argumentNode);
 		}
 		else {
@@ -120,10 +166,30 @@ static bool visitorBindArguments(visitor_T* visitor, ast_T* callNode, ast_T** pa
 		variable_T* binding;
 
 		if (isReference) {
-			binding = scopeAddReferenceVariable(targetScope, parameter->variableDefinitionVariableName, argument);
+			binding = scopeAddReferenceVariable(
+				targetScope,
+				parameter->variableDefinitionVariableName,
+				argument
+			);
+
+			// A const reference keeps reference ownership but prevents reassignment.
+			if (binding && parameter->variableDefinitionIsConstant) {
+				binding->isReadOnly = true;
+			}
+		}
+		else if (parameter->variableDefinitionIsConstant) {
+			binding = scopeAddConstant(
+				targetScope,
+				parameter->variableDefinitionVariableName,
+				argument
+			);
 		}
 		else {
-			binding = scopeAddVariable(targetScope, parameter->variableDefinitionVariableName, argument);
+			binding = scopeAddVariable(
+				targetScope,
+				parameter->variableDefinitionVariableName,
+				argument
+			);
 		}
 
 		if (binding == (void*)0) {

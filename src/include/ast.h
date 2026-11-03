@@ -46,6 +46,7 @@ typedef struct AST_STRUCT {
 	char* variableDefinitionVariableName;
 	struct AST_STRUCT* variableDefinitionValue;
 	bool variableDefinitionIsReference;
+	bool variableDefinitionIsConstant;
 	
 	// AST_FUNCTION_DEFINITION
 	struct AST_STRUCT* functionDefinitionBody;	// attach compound to the body

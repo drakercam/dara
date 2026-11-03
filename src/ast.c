@@ -13,6 +13,7 @@ ast_T* astInit(int type) {
 	ast->variableDefinitionVariableName = (void*)0;
 	ast->variableDefinitionValue = (void*)0;
 	ast->variableDefinitionIsReference = false;
+	ast->variableDefinitionIsConstant = false;
 	
 	// AST_FUNCTION_DEFINITION
 	ast->functionDefinitionBody = (void*)0;

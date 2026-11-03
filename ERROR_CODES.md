@@ -100,6 +100,11 @@ The `grow` method multiplies the existing capacity by the supplied growth factor
 
 `E2002` remains reserved for undefined-variable errors and must not be used for array-capacity validation.
 
+## const runtime diagnostics
+| Code | Category | Message / meaning | How to fix |
+|---|---|---|---|
+| `E2050` | Runtime | Cannot assign to a constant variable. | You cannot reassign a value to a const marked variable after initialization. |
+
 ### Implementation consistency
 
 The array diagnostic codes above are the intended documentation assignments, not confirmation that the current source emits each code. Before considering them implemented, align the visitor with this table:

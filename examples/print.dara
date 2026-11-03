@@ -1,11 +1,19 @@
-namespace test {
-    construct Player {
-        int x;
-    };
+func modify(int& value) -> noval {
+    value = 50;
 };
 
-func returnTestNamespacePlayer() -> test:Player {
-    return construct test:Player(.x = 10);
+func inspect(const int& value) -> noval {
+    std:print(value);
 };
 
-test:Player player = returnTestNamespacePlayer();
+int mutableNumber = 10;
+const int immutableNumber = 20;
+
+modify(mutableNumber);
+std:print(mutableNumber);
+
+modify(immutableNumber);
+std:print(immutableNumber);
+
+inspect(mutableNumber);
+inspect(immutableNumber);
