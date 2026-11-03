@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 /*
  * Parses an assignment, including its target and assigned expression.
@@ -19,6 +20,9 @@
 ast_T* parserParseAssignment(parser_T* parser, scope_T* scope) {
     ast_T* ast = astInit(AST_ASSIGNMENT);
     ast->scope = scope;
+    
+    // Record the assignment's source location.
+	parserSetNodeLocation(ast, parser->currentToken);
 
     // Parse the complete left-hand side.
     ast->assignmentTarget = parserParseFactor(parser, scope);
@@ -64,6 +68,8 @@ ast_T* parserParseAssignment(parser_T* parser, scope_T* scope) {
  ast_T* parserParseVariable(parser_T* parser, scope_T* scope) {
 	
 	char* tokenValue = parser->currentToken->value;
+	sourceLocation_T location = parser->currentToken->location;
+	
 	parserEat(parser, TOKEN_ID); // var name or function call name
 	
 	if (parser->currentToken->type == TOKEN_LEFTPAREN) {
@@ -71,7 +77,7 @@ ast_T* parserParseAssignment(parser_T* parser, scope_T* scope) {
 	}
 		
 	ast_T* astVariable = astInit(AST_VARIABLE);
-	parserSetNodeLocation(astVariable, parser->currentToken);
+	astVariable->location = location;
 	astVariable->variableName = calloc(strlen(tokenValue) + 1, sizeof(char));
 	strcpy(astVariable->variableName, tokenValue);
 	
@@ -94,6 +100,13 @@ ast_T* parserParseAssignment(parser_T* parser, scope_T* scope) {
 
 ast_T* parserParseVariableDefinition(parser_T* parser, scope_T* scope) {
 	char* variableDefinitionType = (void*)0;
+	bool isConstant = false;
+	
+	// an optional const qualifer will precede the declared type
+	if (parser->currentToken->type == TOKEN_ID && strcmp(parser->currentToken->value, "const") == 0) {
+		isConstant = true;
+		parserEat(parser, TOKEN_ID);
+	}
 
 	if (
 		strcmp(parser->currentToken->value, "var") == 0 ||
@@ -111,7 +124,7 @@ ast_T* parserParseVariableDefinition(parser_T* parser, scope_T* scope) {
 			sizeof(char)
 		);
 
-		if (variableDefinitionType == (void*)0) {
+		if (!variableDefinitionType) {
 			printf("Failed to allocate variable type\n");
 			exit(EXIT_FAILURE);
 		}
@@ -138,6 +151,7 @@ ast_T* parserParseVariableDefinition(parser_T* parser, scope_T* scope) {
 	variableDefinition->variableDefinitionType = variableDefinitionType;
 	variableDefinition->variableDefinitionVariableName = variableDefinitionVariableName;
 	variableDefinition->variableDefinitionValue = (void*)0;
+	variableDefinition->variableDefinitionIsConstant = isConstant;
 	variableDefinition->scope = scope;
 	variableDefinition->location = startLocation;
 	

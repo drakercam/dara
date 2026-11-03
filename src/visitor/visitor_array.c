@@ -1,4 +1,5 @@
 #include "../include/visitor.h"
+#include "../include/scope.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -275,6 +276,29 @@ static bool arrayEvaluateIndex(visitor_T* visitor, ast_T* node, size_t* index) {
 }
 
 /*
+ * Resolves the root variable of an array argument.
+ * Recursively follows member access to find the owning binding.
+ */
+static variable_T* arrayGetRootVariable(ast_T* node) {
+    if (!node) {
+        return (void*)0;
+    }
+
+    if (node->type == AST_VARIABLE) {
+        return scopeGetVariable(
+            node->scope,
+            node->variableName
+        );
+    }
+
+    if (node->type == AST_MEMBER_ACCESS) {
+        return arrayGetRootVariable(node->memberAccessObject);
+    }
+
+    return (void*)0;
+}
+
+/*
  * Resolves a mutable array argument to its actual stored value.
  * This avoids modifying the temporary copy returned by variable lookup.
  */
@@ -285,6 +309,19 @@ static value_T* arrayGetMutableArgument(visitor_T* visitor, ast_T* node) {
             node,
             "E2043",
             "Array mutation requires an assignable array variable or field."
+        );
+
+        return (void*)0;
+    }
+    
+    variable_T* rootVariable = arrayGetRootVariable(node);
+
+    if (rootVariable && rootVariable->isReadOnly) {
+        visitorReportDiagnostic(
+            visitor,
+            node,
+            "E2050",
+            "Cannot modify an array through a constant variable."
         );
 
         return (void*)0;

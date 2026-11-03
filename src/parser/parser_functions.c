@@ -37,15 +37,23 @@ ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope) {
     // Parse function parameters.
     if (parser->currentToken->type != TOKEN_RIGHTPAREN) {
         while (1) {
-            if (parser->currentToken->type != TOKEN_ID) {
-                parserReportError(parser, "E1114", "Expected a parameter type.");
-				astFree(ast);
-				exit(EXIT_FAILURE);
-            }
 
             char* parameterType = (void*)0;
             char* parameterName = (void*)0;
             bool isReference = false;
+            bool isConstant = false;
+            
+            // An optional const qualifier precedes the parameter type.
+			if (strcmp(parser->currentToken->value, "const") == 0) {
+				isConstant = true;
+				parserEat(parser, TOKEN_ID);
+			}
+
+			if (parser->currentToken->type != TOKEN_ID) {
+				parserReportError(parser, "E1114", "Expected a parameter type.");
+				astFree(ast);
+				exit(EXIT_FAILURE);
+			}
 
             char* firstName = parser->currentToken->value;
 
@@ -113,6 +121,7 @@ ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope) {
             parameter->variableDefinitionVariableName = parameterName;
             parameter->variableDefinitionValue = (void*)0;
             parameter->variableDefinitionIsReference = isReference;
+            parameter->variableDefinitionIsConstant = isConstant;
             parameter->scope = scope;
 
             size_t newSize = ast->functionDefinitionArgsSize + 1;

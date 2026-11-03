@@ -272,7 +272,8 @@ ast_T* parserParseStatement(parser_T* parser, scope_T* scope) {
             strcmp(value, "color") == 0 ||
             strcmp(value, "func") == 0 ||
             strcmp(value, "array") == 0 ||
-            strcmp(value, "return") == 0
+            strcmp(value, "return") == 0 ||
+            strcmp(value, "const") == 0
         ) {
             return parserParseID(parser, scope);
         }
@@ -658,6 +659,7 @@ ast_T* parserParseID(parser_T* parser, scope_T* scope) {
 		return parserParseConstructDefinition(parser, scope);
 	}
 	else if (
+		strcmp(parser->currentToken->value, "const") == 0 ||
 		strcmp(parser->currentToken->value, "var") == 0 ||
 		strcmp(parser->currentToken->value, "auto") == 0 ||
 		strcmp(parser->currentToken->value, "int") == 0 ||
