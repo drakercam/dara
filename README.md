@@ -167,22 +167,6 @@ func constructReturn() -> Player {
 Player player = constructReturn();
 ```
 
-One more note. Currently, namespaces restricts return access to their internally defined constructs to only be allowed with other functions defined inside the namespace. The below will fail.
-
-```dara
-namespace test {
-    construct Player {
-        int x;
-    };
-};
-
-func returnTestNamespacePlayer() -> test:Player {
-    return construct test:Player(.x = 10);
-};
-
-test:Player = returnTestNamespacePlayer();
-```
-
 ## Constructs and methods
 
 Constructs define custom data types with fields and methods. Fields can contain other constructs. All specific rules for functions apply to construct methods.

@@ -316,6 +316,15 @@ ast_T* parserParseStatements(parser_T* parser, scope_T* scope) {
         }
 
         statement->scope = scope;
+		
+		// register function definitions into the scope
+		if (statement->type == AST_FUNCTION_DEFINITION) {
+			if (!scopeAddFunctionDefinition(scope, statement)) {
+				printf("Failed to register function '%s'.\n", statement->functionDefinitionName);
+				astFree(compound);
+				exit(1);
+			}
+		}
 
         size_t newSize = compound->compoundSize + 1;
 

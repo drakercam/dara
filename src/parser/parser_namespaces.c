@@ -46,24 +46,31 @@ ast_T* parserParseNamespaceDefinition(parser_T* parser, scope_T* scope) {
     parserEat(parser, TOKEN_LEFTBRACE);
     
     ast_T* existing = scopeGetNamespaceDefinition(scope, ast->namespaceDefinitionName);
+    
     if (!existing) {
-		ast->namespaceDefinitionScope = scopeInit();
-
-		ast->namespaceDefinitionBody = parserParseStatements(
-			parser,
-			ast->namespaceDefinitionScope
-		);
-
-		parserEat(parser, TOKEN_RIGHTBRACE);
-
-		if (scopeAddNamespaceDefinition(scope, ast) == (void*)0) {
-			printf(
-				"Failed to register namespace '%s'\n",
-				ast->namespaceDefinitionName
-			);
+		ast->namespaceDefinitionScope = scopeInitChild(scope);
+		
+		if (!ast->namespaceDefinitionScope) {
+			printf("Failed to allocate namespace scope\n");
 			astFree(ast);
 			exit(EXIT_FAILURE);
 		}
+		
+		 /*
+		 * Register the namespace BEFORE parsing its body.
+		 * This allows qualified references such as game:Player
+		 * to resolve while we're inside the namespace itself.
+		 */
+
+		if (!scopeAddNamespaceDefinition(scope, ast)) {
+			printf("Failed to register namespace '%s'\n", ast->namespaceDefinitionName);
+			astFree(ast);
+			exit(EXIT_FAILURE);
+		}
+		
+		ast->namespaceDefinitionBody = parserParseStatements(parser, ast->namespaceDefinitionScope);
+
+		parserEat(parser, TOKEN_RIGHTBRACE);
 
 		return ast;
 	}

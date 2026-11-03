@@ -213,8 +213,8 @@ ast_T* scopeGetConstructDefinition(scope_T* scope, const char* constructName) {
 	scope_T* currentScope = scope;
 	
 	while (currentScope != (void*)0) {
-		for (size_t i = 0; i < scope->constructDefinitionsSize; ++i) {
-			ast_T* constructDef = scope->constructDefinitions[i];
+		for (size_t i = 0; i < currentScope->constructDefinitionsSize; ++i) {
+			ast_T* constructDef = currentScope->constructDefinitions[i];
 			
 			if (strcmp(constructDef->constructDefinitionName, constructName) == 0) {
 				return constructDef;
@@ -248,16 +248,19 @@ ast_T* scopeAddNamespaceDefinition(scope_T* scope, ast_T* namespaceDef) {
 }
 
 ast_T* scopeGetNamespaceDefinition(scope_T* scope, const char* namespaceName) {
-    for (size_t i = 0; i < scope->namespaceDefinitionsSize; ++i) {
-        ast_T* namespaceDef = scope->namespaceDefinitions[i];
+	scope_T* currentScope = scope;
+	
+    while (currentScope != (void*)0) {
+		for (size_t i = 0; i < currentScope->namespaceDefinitionsSize; ++i) {
+			ast_T* namespaceDef = currentScope->namespaceDefinitions[i];
 
-        if (strcmp(
-                namespaceDef->namespaceDefinitionName,
-                namespaceName
-            ) == 0) {
-            return namespaceDef;
-        }
-    }
+			if (strcmp(namespaceDef->namespaceDefinitionName, namespaceName) == 0) {
+				return namespaceDef;
+			}
+		}
+		
+		currentScope = currentScope->parent;
+	}
 
     return (void*)0;
 }
@@ -292,8 +295,7 @@ ast_T* scopeGetQualifiedConstructDefinition( scope_T* scope, const char* qualifi
 
         memcpy(namespaceName, name, namespaceNameLength);
 
-        ast_T* namespaceDefinition =
-            scopeGetNamespaceDefinition(currentScope, namespaceName);
+        ast_T* namespaceDefinition = scopeGetNamespaceDefinition(currentScope, namespaceName);
 
         free(namespaceName);
 
@@ -316,9 +318,8 @@ ast_T* scopeGetQualifiedConstructDefinition( scope_T* scope, const char* qualifi
 }
 
 ast_T* scopeGetQualifiedFunctionDefinition(scope_T* scope, const char* qualifiedName) {
-	if (scope == (void*)0 || qualifiedName == (void*)0 ||
-        qualifiedName[0] == '\0') {
-        return NULL;
+	if (scope == (void*)0 || qualifiedName == (void*)0 || qualifiedName[0] == '\0') {
+        return (void*)0;
     }
 
     scope_T* currentScope = scope;
@@ -332,10 +333,7 @@ ast_T* scopeGetQualifiedFunctionDefinition(scope_T* scope, const char* qualified
             return (void*)0;
         }
 
-        char* namespaceName = calloc(
-            namespaceNameLength + 1,
-            sizeof(char)
-        );
+        char* namespaceName = calloc(namespaceNameLength + 1, sizeof(char));
 
         if (namespaceName == (void*)0) {
             return (void*)0;
@@ -343,21 +341,15 @@ ast_T* scopeGetQualifiedFunctionDefinition(scope_T* scope, const char* qualified
 
         memcpy(namespaceName, name, namespaceNameLength);
 
-        ast_T* namespaceDefinition =
-            scopeGetNamespaceDefinition(
-                currentScope,
-                namespaceName
-            );
+        ast_T* namespaceDefinition = scopeGetNamespaceDefinition(currentScope, namespaceName);
 
         free(namespaceName);
 
-        if (namespaceDefinition == (void*)0 ||
-            namespaceDefinition->namespaceDefinitionScope == (void*)0) {
+        if (namespaceDefinition == (void*)0 || namespaceDefinition->namespaceDefinitionScope == (void*)0) {
             return (void*)0;
         }
 
-        currentScope =
-            namespaceDefinition->namespaceDefinitionScope;
+        currentScope = namespaceDefinition->namespaceDefinitionScope;
 
         name = separator + 1;
 

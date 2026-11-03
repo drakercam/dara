@@ -149,30 +149,45 @@ ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope) {
 	if (parser->currentToken->type != TOKEN_ID) {
 		parserReportError(parser, "E1116", "Expected a function return type after '->'.");
 		astFree(ast);
-		exit(EXIT_FAILURE);
+		exit(1);
 	}
 
-	char* returnType = parser->currentToken->value;
+	char* returnType = (void*)0;
+	const char* typeName = parser->currentToken->value;
 	
-	bool isBuiltinType = strcmp(returnType, "int") == 0 ||
-						 strcmp(returnType, "float") == 0 ||
-						 strcmp(returnType, "string") == 0 ||
-						 strcmp(returnType, "bool") == 0 ||
-						 strcmp(returnType, "noval") == 0 ||
-						 strcmp(returnType, "construct") == 0 ||
-						 strcmp(returnType, "color") == 0 ||
-						 strcmp(returnType, "auto") == 0;
+	
+	bool isBuiltinType = strcmp(typeName, "int") == 0 ||
+						 strcmp(typeName, "float") == 0 ||
+						 strcmp(typeName, "string") == 0 ||
+						 strcmp(typeName, "bool") == 0 ||
+						 strcmp(typeName, "noval") == 0 ||
+						 strcmp(typeName, "construct") == 0 ||
+						 strcmp(typeName, "color") == 0 ||
+						 strcmp(typeName, "auto") == 0;
 						 
-	bool isConstructReturnType = false;
-	
-	if (!isBuiltinType) {
-		if (strchr(returnType, ':') != (void*)0) {
-			isConstructReturnType = scopeGetQualifiedConstructDefinition(scope, returnType) != (void*)0;
+	if (isBuiltinType) {
+		returnType = calloc(strlen(typeName) + 1, sizeof(char));
+		
+		if (!returnType) {
+			printf("Failed to allocate function return type\n");
+			astFree(ast);
+			exit(EXIT_FAILURE);
 		}
-		else {
-			isConstructReturnType = scopeGetConstructDefinition(scope, returnType) != (void*)0;
-		}
+		
+		strcpy(returnType, typeName);
+		parserEat(parser, TOKEN_ID);
 	}
+	else {
+		// parse construct types, including qualified construct names.
+		returnType = parserParseQualifiedConstructName(parser, scope);
+	}
+	
+	if (!returnType) {
+		astFree(ast);
+		exit(1);
+	}
+	
+	bool isConstructReturnType = scopeGetQualifiedConstructDefinition(scope, returnType) != (void*)0;
 	
 	if (!isBuiltinType && !isConstructReturnType) {
 		char message[256];
@@ -185,24 +200,12 @@ ast_T* parserParseFunctionDefinition(parser_T* parser, scope_T* scope) {
 		);
 
 		parserReportError(parser, "E1117", message);
+		free(returnType);
 		astFree(ast);
 		exit(EXIT_FAILURE);
 	}
-
-	ast->functionDefinitionReturnType = calloc(
-		strlen(returnType) + 1,
-		sizeof(char)
-	);
-
-	if (ast->functionDefinitionReturnType == (void*)0) {
-		printf("Failed to allocate function return type\n");
-		astFree(ast);
-		exit(EXIT_FAILURE);
-	}
-
-	strcpy(ast->functionDefinitionReturnType, returnType);
-
-	parserEat(parser, TOKEN_ID);
+	
+	ast->functionDefinitionReturnType = returnType;
 	
 	parserEat(parser, TOKEN_LEFTBRACE);
 	ast->functionDefinitionBody = parserParseStatements(parser, scope); // the function body is a compound
