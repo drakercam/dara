@@ -10,6 +10,7 @@ typedef struct VARIABLE_STRUCT {
 	char* name;
 	value_T* value;
 	bool ownsValue;
+	bool isReadOnly;
 	
 }variable_T;
 
@@ -45,6 +46,8 @@ ast_T* scopeGetFunctionDefinition(scope_T* scope, const char* funcName);
 variable_T* scopeAddVariable(scope_T* scope, const char* name, value_T* value);
 variable_T* scopeAddReferenceVariable(scope_T* scope, const char* name, value_T* value);
 variable_T* scopeGetVariable(scope_T* scope, const char* name);
+variable_T* scopeAddConstant(scope_T* scope, const char* name, value_T* value);
+
 void scopeRemoveVariables(scope_T* scope, size_t count);
 
 ast_T* scopeAddVariableDefinition(scope_T* scope, ast_T* varDef);
