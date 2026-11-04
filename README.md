@@ -1,11 +1,12 @@
-# Dara v0.3
+# Dara v0.4
 
-Dara is an interpreted programming language written in C. It features explicit types, functions, constructs, namespaces, reference parameters, structured diagnostics, arrays, mixed numeric arithmetic, constant variables, and native Raylib bindings.
+Dara is an interpreted programming language written in C. It features explicit types, functions, constructs, namespaces, reference parameters, structured diagnostics, arrays, mixed numeric arithmetic, constant variables, a unified callable registry, and native Raylib bindings.
 
 ## Features
 
 - **Types:** `int`, `float`, `string`, `bool`, `auto`, `array`, `construct` and `noval`.
 - **Functions:** Typed parameters, return types, and reference parameters. Functions support the available Dara return types.
+- **Callable registry:** A unified registration and lookup system for interpreted Dara functions and native C functions.
 - **Constructs:** Custom data types, nested fields, designated initialization, and methods.
 - **Namespaces:** Provides grouping of related data, creating qualified functions and constructs. Internal builtin functions are registered into their designated namespaces.
 - **Control flow:** `if`, `while`, and `for`.
@@ -45,7 +46,7 @@ func add(int a, int b) -> int {
 
 func main() -> noval {
     int result = add(20, 22);
-    std:print(result);
+    std:io.print(result);
 };
 
 main();
@@ -69,8 +70,8 @@ bool alive = true;
 
 auto score = 0;
 
-std:print(name);
-std:print(health);
+std:io.print(name);
+std:io.print(health);
 ```
 
 Variables can use explicit types or `auto` to infer their type from an initializer. An uninitialized `auto` variable produces runtime diagnostic `E2001`.
@@ -134,12 +135,12 @@ func main() -> noval {
     int whole = 5;
     float fraction = 2.5;
 
-    std:print(whole + 2);        // 7, int
-    std:print(whole + fraction); // 7.5, float
-    std:print(fraction * 2);     // 5.0, float
-    std:print(5 < fraction);     // false, boolean
-    std:print(5 / 2);            // 2, integer division
-    std:print(5.0 / 2);          // 2.5, floating-point division
+    std:io.print(whole + 2);        // 7, int
+    std:io.print(whole + fraction); // 7.5, float
+    std:io.print(fraction * 2);     // 5.0, float
+    std:io.print(5 < fraction);     // false, boolean
+    std:io.print(5 / 2);            // 2, integer division
+    std:io.print(5.0 / 2);          // 2.5, floating-point division
 };
 
 main();
@@ -153,7 +154,7 @@ Functions declare their return type using `->`. Use `noval` for functions that d
 
 ```dara
 func greet(string name) -> noval {
-    std:print(name);
+    std:io.print(name);
 };
 
 func multiply(int a, int b) -> int {
@@ -161,7 +162,7 @@ func multiply(int a, int b) -> int {
 };
 
 greet("Dara");
-std:print(multiply(6, 7));
+std:io.print(multiply(6, 7));
 ```
 
 Functions can return any supported return type. Special case returns include the following types: `auto` and `construct`.
@@ -218,6 +219,142 @@ func constructReturn() -> Player {
 Player player = constructReturn();
 ```
 
+### Function registration and the callable registry
+
+Dara uses a unified callable registry to manage both interpreted Dara functions and native C functions.
+
+Previously, function definitions and native functions were handled through separate registration and lookup mechanisms. The callable registry brings both implementations under one system.
+
+Every callable is represented by a `callable_T` structure. It contains:
+
+- The callable's name.
+- A callable type identifying its implementation.
+- A union containing either a Dara AST function definition or a native C callback.
+
+The callable type is identified by `callableType_T`:
+
+| Callable type | Implementation |
+|---|---|
+| `CALLABLE_DARA` | References an interpreted Dara function definition. |
+| `CALLABLE_NATIVE` | References a native C function callback. |
+
+The registry is maintained by `scope_T` and provides three primary operations:
+
+- `scopeRegisterDaraFunction()` — registers an interpreted Dara function.
+- `scopeRegisterNativeFunction()` — registers a native C function.
+- `scopeGetCallable()` — searches for a callable by its qualified name.
+
+#### Dara function registration
+
+Dara function definitions are registered during parsing rather than waiting until runtime execution reaches their declaration.
+
+When the parser encounters a function definition, it constructs its fully qualified name and registers the function in the root scope's callable registry.
+
+For example:
+
+```dara
+func add(int a, int b) -> int {
+    return a + b;
+};
+```
+
+The function is registered under:
+
+```text
+add
+```
+
+A function inside a namespace receives a qualified name:
+
+```dara
+namespace math {
+    func add(int a, int b) -> int {
+        return a + b;
+    };
+};
+```
+
+Its registry name becomes:
+
+```text
+math:add
+```
+
+Nested namespaces extend the qualified name:
+
+```dara
+namespace game {
+    namespace math {
+        func add(int a, int b) -> int {
+            return a + b;
+        };
+    };
+};
+```
+
+The resulting registry name is:
+
+```text
+game:math:add
+```
+
+This allows the registry to distinguish functions with identical local names in different namespaces.
+
+Because registration happens during parsing, functions can reference other functions declared later in the source file. Namespace-qualified references and forward function references are supported by the same mechanism.
+
+The parser derives namespace prefixes from the existing scope hierarchy, avoiding the need to store redundant qualified-name information in every function AST node.
+
+#### Native function registration
+
+Native functions use the same registry but store a C callback instead of an AST function definition.
+
+Native functions share a common callback signature:
+
+```c
+typedef value_T* (*nativeFunction_T)(
+    visitor_T* visitor,
+    ast_T** args,
+    int argsSize
+);
+```
+
+The callback receives the visitor and the original AST argument nodes. This allows native implementations to evaluate arguments through the existing visitor, preserving Dara's evaluation behavior.
+
+For example, the standard print builtin is registered under:
+
+```text
+std:io.print
+```
+
+Raylib functions use the `rl:` namespace:
+
+```text
+rl:InitWindow
+rl:BeginDrawing
+rl:DrawRectangle
+```
+
+Native registration uses `scopeRegisterNativeFunction()`, while interpreted function registration uses `scopeRegisterDaraFunction()`.
+
+Both become ordinary entries in the same callable registry.
+
+#### Function-call resolution
+
+When Dara evaluates a function call, the visitor uses `scopeGetCallable()` to resolve its name.
+
+The registry searches the current scope and its parent scopes for a matching callable.
+
+Once found, the visitor checks the callable's implementation type:
+
+- `CALLABLE_NATIVE`: invokes the stored C callback.
+- `CALLABLE_DARA`: evaluates the stored AST function definition, binds arguments, executes the function body, and handles its return value.
+
+This means native and interpreted functions share the same function-call lookup path without requiring separate dispatch systems.
+
+Dara function AST nodes remain owned by the program's AST tree. The callable registry stores references to those nodes rather than taking ownership of them. Native callbacks are stored as function pointers.
+
+This separation keeps callable lookup centralized while preserving the existing ownership responsibilities of the AST and runtime.
+
 ## Constructs and methods
 
 Constructs define custom data types with fields and methods. Fields can contain other constructs. All specific rules for functions apply to construct methods.
@@ -233,8 +370,8 @@ construct Player {
     Stats stats;
 
     func report(Player& player) -> noval {
-        std:print(player.name);
-        std:print(player.stats.health);
+        std:io.print(player.name);
+        std:io.print(player.stats.health);
     };
 };
 
@@ -256,16 +393,16 @@ Methods receive their object explicitly as an argument. Dara does not use an imp
 Namespaces organize declarations under qualified names. The `:` separator is used for namespace-qualified calls.
 
 ```dara
-std:print("Hello, Dara!");
+std:io.print("Hello, Dara!");
 
 func main() -> noval {
-    std:print("Running Dara v0.3");
+    std:io.print("Running Dara v0.3");
 };
 
 main();
 ```
 
-Namespaces are implemented so they can be extended whenever necessary. For example, you can define a namespace test and incorporate different methods:
+Namespaces can be extended across multiple declarations. Additional blocks with the same namespace name contribute declarations to the existing namespace scope.
 
 ```dara
 namespace test {
@@ -284,9 +421,45 @@ test:returnNothing1();
 test:returnNothing2();
 ```
 
-`std:print()` is the standard print builtin.
+Nested namespaces are also supported:
 
-`std:typeof()` is the standard type check builtin. It returns a string representing the target's type.
+```dara
+namespace game {
+    namespace player {
+        func update() -> noval {
+            std:io.print("Updating player");
+        };
+    };
+};
+
+game:player:update();
+```
+
+Functions in namespaces are registered using their fully qualified names. This allows different namespaces to contain functions with identical local names.
+
+Mutual recursion between namespace functions is supported as well:
+
+```dara
+namespace a {
+    func add() -> noval {
+        std:io.print("add :)");
+        b:add();
+    };
+};
+
+namespace b {
+    func add() -> noval {
+        std:io.print("add :(");
+        a:add();
+    };
+};
+```
+
+This example demonstrates namespace-qualified mutual recursion. Since neither function has a termination condition, calling either function results in infinite recursion.
+
+`std:io.print()` is the standard print builtin.
+
+`std:util.typeof()` is the standard type-checking builtin. It returns a string representing the target's type.
 
 ## Reference parameters
 
@@ -300,7 +473,7 @@ func damage(int& health) -> noval {
 int health = 100;
 damage(health);
 
-std:print(health);
+std:io.print(health);
 ```
 
 Ordinary parameters use copied values, while reference parameters alias existing variables or supported fields.
@@ -311,7 +484,7 @@ Prefix a function parameter with `const` to make its local binding read-only:
 
 ```dara
 func inspect(const int value) -> noval {
-    std:print(value);
+    std:io.print(value);
     value = 50; // Runtime error E2050
 };
 ```
@@ -322,7 +495,7 @@ Combining `const` with `&` creates a read-only reference:
 
 ```dara
 func inspect(const int& value) -> noval {
-    std:print(value);
+    std:io.print(value);
 };
 ```
 
@@ -367,14 +540,14 @@ numbers = std:array(2) -> int;
 std:array.add(numbers, 10);
 std:array.add(numbers, 20);
 
-std:print(std:array.size(numbers));       // 2
-std:print(std:array.capacity(numbers));   // 2
+std:io.print(std:array.size(numbers));       // 2
+std:io.print(std:array.capacity(numbers));   // 2
 
 std:array.grow(numbers, 2);
-std:print(std:array.capacity(numbers));   // 4
+std:io.print(std:array.capacity(numbers));   // 4
 
 std:array.add(numbers, 30);
-std:print(std:array.at(numbers, 2));      // 30
+std:io.print(std:array.at(numbers, 2));      // 30
 ```
 
 The constructor's capacity must be a positive integer. Supported element types include `int`, `float`, `string`, `boolean`, and `auto`. Typed arrays validate inserted values against their declared type; `auto` arrays accept any supported runtime value type.
@@ -438,6 +611,8 @@ Dara reports language errors using diagnostic categories, error codes, source lo
 - `E2050` reports attempts to modify a constant binding, including invalid mutable-reference bindings and mutations through constant constructs or arrays.
 
 The C runtime manages allocated values and their owned resources. Reference parameters borrow existing storage and must not free the values they reference. Ordinary arguments use value semantics. Constant bindings enforce read-only access without changing the underlying runtime value representation.
+
+The callable registry does not own Dara function AST nodes. It stores references to definitions owned by the program AST. Native callable entries store C function pointers. This keeps function registration separate from AST and runtime-value ownership.
 
 ## Current limitations
 

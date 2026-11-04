@@ -1,19 +1,17 @@
-func modify(int& value) -> noval {
-    value = 50;
+namespace a {
+    func add() -> noval {
+        std:io.print("add :)");
+        b:add();
+    };
 };
 
-func inspect(const int& value) -> noval {
-    std:print(value);
+namespace b {
+    func add() -> noval {
+        std:io.print("add :(");
+    };
 };
 
-int mutableNumber = 10;
-const int immutableNumber = 20;
+a:add();
 
-modify(mutableNumber);
-std:print(mutableNumber);
-
-modify(immutableNumber);
-std:print(immutableNumber);
-
-inspect(mutableNumber);
-inspect(immutableNumber);
+const int x = 5;
+std:io.print(std:util.typeof(x));

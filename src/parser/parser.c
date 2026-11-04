@@ -6,6 +6,70 @@
 #include <string.h>
 #include <stdbool.h>
 
+/*
+ * Builds the namespace prefix for a scope.
+ *
+ * Example:
+ *   root -> a -> nested
+ *   returns "a:nested:"
+ */
+static char* parserGetNamespacePrefix(scope_T* scope) {
+    if (!scope || !scope->parent) {
+        return calloc(1, 1);
+    }
+
+    char* prefix = parserGetNamespacePrefix(scope->parent);
+
+    if (!prefix) {
+        return NULL;
+    }
+
+    scope_T* parent = scope->parent;
+
+    for (size_t i = 0; i < parent->namespaceDefinitionsSize; ++i) {
+        ast_T* namespaceDefinition = parent->namespaceDefinitions[i];
+
+        if (namespaceDefinition->namespaceDefinitionScope != scope) {
+            continue;
+        }
+
+        const char* name = namespaceDefinition->namespaceDefinitionName;
+
+        size_t prefixLength = strlen(prefix);
+        size_t nameLength = strlen(name);
+
+        char* newPrefix = realloc(
+            prefix,
+            prefixLength + nameLength + 2
+        );
+
+        if (!newPrefix) {
+            free(prefix);
+            return NULL;
+        }
+
+        prefix = newPrefix;
+
+        memcpy(prefix + prefixLength, name, nameLength);
+        prefix[prefixLength + nameLength] = ':';
+        prefix[prefixLength + nameLength + 1] = '\0';
+
+        break;
+    }
+
+    return prefix;
+}
+
+/*
+ * Returns the root scope.
+ */
+static scope_T* parserGetRootScope(scope_T* scope) {
+    while (scope && scope->parent) {
+        scope = scope->parent;
+    }
+
+    return scope;
+}
 
 /*
  * Reports a parser diagnostic at the current token's location.
@@ -318,13 +382,51 @@ ast_T* parserParseStatements(parser_T* parser, scope_T* scope) {
 
         statement->scope = scope;
 		
-		// register function definitions into the scope
+		// Register function definitions in the callable registry.
 		if (statement->type == AST_FUNCTION_DEFINITION) {
-			if (!scopeAddFunctionDefinition(scope, statement)) {
-				printf("Failed to register function '%s'.\n", statement->functionDefinitionName);
+			char* namespacePrefix = parserGetNamespacePrefix(scope);
+
+			if (!namespacePrefix) {
+				printf("Failed to allocate namespace prefix.\n");
 				astFree(compound);
-				exit(1);
+				exit(EXIT_FAILURE);
 			}
+
+			size_t prefixLength = strlen(namespacePrefix);
+			size_t nameLength = strlen(statement->functionDefinitionName);
+
+			char* qualifiedName = malloc(prefixLength + nameLength + 1);
+
+			if (!qualifiedName) {
+				free(namespacePrefix);
+				astFree(compound);
+				printf("Failed to allocate qualified function name.\n");
+				exit(EXIT_FAILURE);
+			}
+
+			memcpy(qualifiedName, namespacePrefix, prefixLength);
+			memcpy(
+				qualifiedName + prefixLength,
+				statement->functionDefinitionName,
+				nameLength + 1
+			);
+
+			callable_T* callable = scopeRegisterDaraFunction(
+				parserGetRootScope(scope),
+				qualifiedName,
+				statement
+			);
+
+			if (!callable) {
+				printf("Failed to register function '%s'.\n", qualifiedName);
+				free(qualifiedName);
+				free(namespacePrefix);
+				astFree(compound);
+				exit(EXIT_FAILURE);
+			}
+
+			free(qualifiedName);
+			free(namespacePrefix);
 		}
 
         size_t newSize = compound->compoundSize + 1;
@@ -403,7 +505,7 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 					return functionCall;
 				}
 
-				bool isBuiltinNamespace = strcmp(qualifiedName, "std:array") == 0;
+				bool isBuiltinNamespace = strncmp(qualifiedName, "std:", 4) == 0;
 
 				if (scopeGetQualifiedConstructDefinition(scope, qualifiedName) == (void*)0 && !isBuiltinNamespace) {
 					ast_T* variable = astInit(AST_VARIABLE);

@@ -7,8 +7,12 @@
 scope_T* scopeInit() {
 	scope_T* scope = calloc(1, sizeof(struct SCOPE_STRUCT));
 	
-	scope->functionDefinitions = (void*)0;
-	scope->functionDefinitionsSize = 0;
+	if (!scope) {
+        return NULL;
+    }
+	
+	scope->callables = (void*)0;
+	scope->callablesSize = 0;
 	
 	scope->variables = (void*)0;
 	scope->variablesSize = 0;
@@ -23,7 +27,16 @@ scope_T* scopeInit() {
 }
 
 scope_T* scopeInitChild(scope_T* parent) {
+	if (!parent) {
+        return NULL;
+    }
+	
 	scope_T* scope = scopeInit();
+	
+	if (!scope) {
+        return NULL;
+    }
+	
     scope->parent = parent;
 
     return scope;
@@ -34,7 +47,6 @@ void scopeFree(scope_T* scope) {
 		return;
 	}
 	
-	free(scope->functionDefinitions);
 	free(scope->constructDefinitions);
 	free(scope->namespaceDefinitions);
 	
@@ -48,38 +60,155 @@ void scopeFree(scope_T* scope) {
 		free(variable);
 	}
 	
+	for (size_t i = 0; i < scope->callablesSize; ++i) {
+		callable_T* callable = scope->callables[i];
+
+		free(callable->name);
+		free(callable);
+	}
+
+	free(scope->callables);
 	free(scope->variables);
 	free(scope);
 }
 
-ast_T* scopeAddFunctionDefinition(scope_T* scope, ast_T* funcDef) {
-	scope->functionDefinitionsSize += 1;
-	
-	if (scope->functionDefinitions == (void*)0) {
-		scope->functionDefinitions = calloc(1, sizeof(ast_T*));
-	}
-	else {
-		scope->functionDefinitions = 
-			realloc(
-				scope->functionDefinitions, 
-				scope->functionDefinitionsSize * sizeof(ast_T**)
-			);
-	}
-	
-	scope->functionDefinitions[scope->functionDefinitionsSize-1] = funcDef;
-	
-	return funcDef;
+/*
+ * Checks whether a callable with the given name already exists
+ * in the supplied scope.
+ */
+static callable_T* scopeFindLocalCallable(scope_T* scope, const char* qualifiedName) {
+    for (size_t i = 0; i < scope->callablesSize; ++i) {
+        callable_T* callable = scope->callables[i];
+
+        if (strcmp(callable->name, qualifiedName) == 0) {
+            return callable;
+        }
+    }
+
+    return NULL;
 }
 
-ast_T* scopeGetFunctionDefinition(scope_T* scope, const char* funcName) {
-	for (int i = 0; i < scope->functionDefinitionsSize; ++i) {
-		ast_T* funcDef = scope->functionDefinitions[i];
-		if (strcmp(funcDef->functionDefinitionName, funcName) == 0) {
-			return funcDef;
-		}
-	}
-	
-	return (void*)0;
+/*
+ * Registers a callable in the supplied scope.
+ *
+ * The registry takes ownership of the callable record and its name,
+ * but never takes ownership of the implementation itself.
+ */
+static callable_T* scopeRegisterCallable(scope_T* scope, const char* qualifiedName,callableType_T type) {
+    if (scope == NULL || qualifiedName == NULL || qualifiedName[0] == '\0') {
+        return NULL;
+    }
+
+    if (scopeFindLocalCallable(scope, qualifiedName) != NULL) {
+        return NULL;
+    }
+
+    callable_T* callable = calloc(1, sizeof(callable_T));
+
+    if (callable == NULL) {
+        return NULL;
+    }
+
+    callable->name = malloc(strlen(qualifiedName) + 1);
+
+    if (callable->name == NULL) {
+        free(callable);
+        return NULL;
+    }
+
+    strcpy(callable->name, qualifiedName);
+    callable->type = type;
+
+    callable_T** callables = realloc(
+        scope->callables,
+        (scope->callablesSize + 1) * sizeof(callable_T*)
+    );
+
+    if (callables == NULL) {
+        free(callable->name);
+        free(callable);
+        return NULL;
+    }
+
+    scope->callables = callables;
+    scope->callables[scope->callablesSize] = callable;
+    scope->callablesSize++;
+
+    return callable;
+}
+
+/*
+ * Registers a native C function.
+ */
+callable_T* scopeRegisterNativeFunction(scope_T* scope, const char* qualifiedName, nativeFunction_T callback) {
+    if (callback == NULL) {
+        return NULL;
+    }
+
+    callable_T* callable = scopeRegisterCallable(
+        scope,
+        qualifiedName,
+        CALLABLE_NATIVE
+    );
+
+    if (callable == NULL) {
+        return NULL;
+    }
+
+    callable->implementation.nativeFunction = callback;
+
+    return callable;
+}
+
+/*
+ * Registers a Dara AST function.
+ *
+ * The AST remains owned by the program's AST tree.
+ */
+callable_T* scopeRegisterDaraFunction(scope_T* scope, const char* qualifiedName, ast_T* functionDefinition) {
+    if (functionDefinition == NULL) {
+        return NULL;
+    }
+
+    callable_T* callable = scopeRegisterCallable(
+        scope,
+        qualifiedName,
+        CALLABLE_DARA
+    );
+
+    if (callable == NULL) {
+        return NULL;
+    }
+
+    callable->implementation.functionDefinition = functionDefinition;
+
+    return callable;
+}
+
+/*
+ * Searches the current scope and its parent scopes for a callable.
+ */
+callable_T* scopeGetCallable(scope_T* scope,const char* qualifiedName) {
+    if (scope == NULL || qualifiedName == NULL) {
+        return NULL;
+    }
+
+    scope_T* currentScope = scope;
+
+    while (currentScope != NULL) {
+        callable_T* callable = scopeFindLocalCallable(
+            currentScope,
+            qualifiedName
+        );
+
+        if (callable != NULL) {
+            return callable;
+        }
+
+        currentScope = currentScope->parent;
+    }
+
+    return NULL;
 }
 
 static variable_T* scopeAddVariableWithOwnership(scope_T* scope, const char* name, value_T* value, bool ownsValue) {
@@ -325,48 +454,4 @@ ast_T* scopeGetQualifiedConstructDefinition( scope_T* scope, const char* qualifi
 
     // The final segment is the construct name.
     return scopeGetConstructDefinition(currentScope, name);
-}
-
-ast_T* scopeGetQualifiedFunctionDefinition(scope_T* scope, const char* qualifiedName) {
-	if (scope == (void*)0 || qualifiedName == (void*)0 || qualifiedName[0] == '\0') {
-        return (void*)0;
-    }
-
-    scope_T* currentScope = scope;
-    const char* name = qualifiedName;
-    const char* separator;
-
-    while ((separator = strchr(name, ':')) != (void*)0) {
-        size_t namespaceNameLength = separator - name;
-
-        if (namespaceNameLength == 0) {
-            return (void*)0;
-        }
-
-        char* namespaceName = calloc(namespaceNameLength + 1, sizeof(char));
-
-        if (namespaceName == (void*)0) {
-            return (void*)0;
-        }
-
-        memcpy(namespaceName, name, namespaceNameLength);
-
-        ast_T* namespaceDefinition = scopeGetNamespaceDefinition(currentScope, namespaceName);
-
-        free(namespaceName);
-
-        if (namespaceDefinition == (void*)0 || namespaceDefinition->namespaceDefinitionScope == (void*)0) {
-            return (void*)0;
-        }
-
-        currentScope = namespaceDefinition->namespaceDefinitionScope;
-
-        name = separator + 1;
-
-        if (*name == '\0') {
-            return (void*)0;
-        }
-    }
-
-    return scopeGetFunctionDefinition(currentScope, name);
 }
