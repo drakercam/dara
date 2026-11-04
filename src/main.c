@@ -6,6 +6,7 @@
 #include "include/io.h"
 #include "include/value.h"
 #include "include/scope.h"
+#include "include/builtin_registry.h"
 
 void printHelp() {
 	printf("Usage:\n dara <filename>\n");
@@ -22,6 +23,8 @@ int main(int argc, char* argv[]) {
 	);
 
 	parser_T* parser = parserInit(lexer);
+	builtinRegisterAll(parser->scope);
+	
 	parser->fileName = argv[1];
 	ast_T* root = parserParse(parser, parser->scope);
 	visitor_T* visitor = visitorInit();

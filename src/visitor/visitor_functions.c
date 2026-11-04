@@ -8,33 +8,165 @@
 #include <string.h>
 #include <stdbool.h>
 
+
 /*
- * Registers a function definition in its scope.
+ * Returns the root scope of a scope hierarchy.
  */
-value_T* visitorVisitFunctionDefinition(visitor_T* visitor, ast_T* node) {
-	
-	scopeAddFunctionDefinition(node->scope, node);
-	
-	return (void*)0;
+static scope_T* visitorGetRootScope(scope_T* scope) {
+    while (scope && scope->parent) {
+        scope = scope->parent;
+    }
+
+    return scope;
 }
 
 /*
- * Registers function definitions contained within a namespace.
+ * Registers a Dara function using its fully qualified name.
+ *
+ * The namespace prefix is empty for top-level functions and contains
+ * the enclosing namespace path for namespaced functions.
  */
+static bool visitorRegisterQualifiedFunction(
+    visitor_T* visitor,
+    ast_T* node,
+    const char* namespacePrefix
+) {
+    const char* functionName = node->functionDefinitionName;
+
+    size_t prefixLength = namespacePrefix
+        ? strlen(namespacePrefix)
+        : 0;
+
+    size_t nameLength = strlen(functionName);
+
+    char* qualifiedName = malloc(prefixLength + nameLength + 1);
+
+    if (!qualifiedName) {
+        visitorReportDiagnostic(
+            visitor,
+            node,
+            "E2004",
+            "Failed to allocate qualified function name."
+        );
+
+        return false;
+    }
+
+    if (prefixLength > 0) {
+        memcpy(qualifiedName, namespacePrefix, prefixLength);
+    }
+
+    memcpy(
+        qualifiedName + prefixLength,
+        functionName,
+        nameLength + 1
+    );
+
+    scope_T* rootScope = visitorGetRootScope(node->scope);
+
+    callable_T* callable = scopeRegisterDaraFunction(
+        rootScope,
+        qualifiedName,
+        node
+    );
+
+    if (!callable) {
+        char message[256];
+
+        snprintf(
+            message,
+            sizeof(message),
+            "Failed to register function '%s'.",
+            qualifiedName
+        );
+
+        visitorReportDiagnostic(visitor, node, "E2032", message);
+
+        free(qualifiedName);
+        return false;
+    }
+
+    free(qualifiedName);
+    return true;
+}
+
+/*
+ * Recursively registers functions inside a namespace hierarchy.
+ */
+static void visitorRegisterNamespaceFunctions(
+    visitor_T* visitor,
+    ast_T* node,
+    const char* parentPrefix
+) {
+    size_t parentLength = parentPrefix
+        ? strlen(parentPrefix)
+        : 0;
+
+    size_t namespaceLength = strlen(node->namespaceDefinitionName);
+
+    /*
+     * parentPrefix + namespace name + ':' + null terminator.
+     */
+    char* namespacePrefix = malloc(
+        parentLength + namespaceLength + 2
+    );
+
+    if (!namespacePrefix) {
+        visitorReportDiagnostic(
+            visitor,
+            node,
+            "E2004",
+            "Failed to allocate namespace prefix."
+        );
+
+        return;
+    }
+
+    if (parentLength > 0) {
+        memcpy(namespacePrefix, parentPrefix, parentLength);
+    }
+
+    memcpy(
+        namespacePrefix + parentLength,
+        node->namespaceDefinitionName,
+        namespaceLength
+    );
+
+    namespacePrefix[parentLength + namespaceLength] = ':';
+    namespacePrefix[parentLength + namespaceLength + 1] = '\0';
+
+    for (size_t i = 0; i < node->namespaceDefinitionBody->compoundSize; ++i) {
+        ast_T* statement = node->namespaceDefinitionBody->compoundValue[i];
+
+        if (statement->type == AST_FUNCTION_DEFINITION) {
+            visitorRegisterQualifiedFunction(
+                visitor,
+                statement,
+                namespacePrefix
+            );
+        }
+        else if (statement->type == AST_NAMESPACE_DEFINITION) {
+            visitorRegisterNamespaceFunctions(
+                visitor,
+                statement,
+                namespacePrefix
+            );
+        }
+    }
+
+    free(namespacePrefix);
+}
+
+value_T* visitorVisitFunctionDefinition(visitor_T* visitor, ast_T* node) {
+    (void)visitor;
+    (void)node;
+    return NULL;
+}
+
 value_T* visitorVisitNamespaceDefinition(visitor_T* visitor, ast_T* node) {
-	// register the definitions inside the namespaces scope
-	for (size_t i = 0; i < node->namespaceDefinitionBody->compoundSize; ++i) {
-		ast_T* statement = node->namespaceDefinitionBody->compoundValue[i];
-		
-		if (statement->type == AST_FUNCTION_DEFINITION) {
-			visitorVisitFunctionDefinition(visitor, statement);
-		}
-		else if (statement->type == AST_NAMESPACE_DEFINITION) {
-			visitorVisitNamespaceDefinition(visitor, statement);
-		}
-	}
-	
-	return (void*)0;
+    (void)visitor;
+    (void)node;
+    return NULL;
 }
 
 /*
@@ -213,63 +345,45 @@ static bool visitorBindArguments(visitor_T* visitor, ast_T* callNode, ast_T** pa
  * Evaluates a function call, binds arguments, and checks its return type.
  */
 value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node) {
-	if (strcmp(node->functionCallName, "std:print") == 0) {
-		return builtinFunctionPrint(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
+	
+	callable_T* callable = scopeGetCallable(node->scope, node->functionCallName);
+	
+	if (!callable) {
+		char message[256];
+		snprintf(message, sizeof(message), "Undefined function '%s'.", node->functionCallName);
+		visitorReportDiagnostic(visitor, node, "E2032", message);
+		return NULL;
 	}
 	
-	if (strcmp(node->functionCallName, "std:add") == 0) {
-		return builtinFunctionAdd(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
+	if (callable->type == CALLABLE_NATIVE) {
+		return callable->implementation.nativeFunction(visitor, node->functionCallArguments, (int)node->functionCallArgumentsSize);
 	}
 	
-	if (strcmp(node->functionCallName, "std:typeof") == 0) {
-		return builtinFunctionTypeof(visitor, node->functionCallArguments[0]);
-	}
-	
-	// raylib
-	if (strcmp(node->functionCallName, "rl:InitWindow") == 0) {
-		return builtinRaylibFuncInitWindow(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
-	}
-	
-	if (strcmp(node->functionCallName, "rl:WindowShouldClose") == 0) {
-		return builtinRaylibFuncWindowShouldClose(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
-	}
-	
-	if (strcmp(node->functionCallName, "rl:BeginDrawing") == 0) {
-		return builtinRaylibFuncBeginDrawing(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
-	}
-	
-	if (strcmp(node->functionCallName, "rl:EndDrawing") == 0) {
-		return builtinRaylibFuncEndDrawing(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
-	}
-	
-	if (strcmp(node->functionCallName, "rl:CloseWindow") == 0) {
-		return builtinRaylibFuncCloseWindow(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
-	}
-	
-	if (strcmp(node->functionCallName, "rl:ClearBackground") == 0) {
-		return builtinRaylibFuncClearBackground(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
-	}
-	
-	if (strcmp(node->functionCallName, "rl:DrawRectangle") == 0) {
-		return builtinRaylibFuncDrawRectangle(visitor, node->functionCallArguments, node->functionCallArgumentsSize);
-	}
-	
-	ast_T* funcDef;
+	/*
+	 * Dara function.
+	 */
+	if (callable->type != CALLABLE_DARA) {
+		visitorReportDiagnostic(
+			visitor,
+			node,
+			"E2032",
+			"Invalid callable type."
+		);
 
-	if (strchr(node->functionCallName, ':') != (void*)0) {
-		funcDef = scopeGetQualifiedFunctionDefinition(node->scope, node->functionCallName);
+		return NULL;
 	}
-	else {
-		funcDef = scopeGetFunctionDefinition(node->scope, node->functionCallName);
-	}
+	
+	ast_T* funcDef = callable->implementation.functionDefinition;
 
 	if (!funcDef) {
-		char message[256];
-		
-		snprintf(message, sizeof(message), "Undefined function '%s'.", node->functionCallName);
-		
-		visitorReportDiagnostic(visitor, node, "E2032", message);
-		return (void*)0;
+		visitorReportDiagnostic(
+			visitor,
+			node,
+			"E2032",
+			"Dara callable has no function definition."
+		);
+
+		return NULL;
 	}
 
 	if (!visitorBindArguments(
@@ -393,6 +507,18 @@ value_T* visitorVisitMethodCall(visitor_T* visitor, ast_T* node) {
 		return visitorVisitArrayMethodCall(visitor, node);
 	}
 	
+	/*
+	 * Handle registered native methods.
+	 */
+	char callableName[256];
+
+	snprintf(callableName,sizeof(callableName), "%s.%s", node->methodCallConstructName, node->methodCallName);
+
+	callable_T* callable = scopeGetCallable(node->scope, callableName);
+
+	if (callable && callable->type == CALLABLE_NATIVE) {
+		return callable->implementation.nativeFunction(visitor, node->methodCallArguments, (int)node->methodCallArgumentsSize);
+	}
 	
     // 1. Find the construct definition.
     ast_T* construct = scopeGetQualifiedConstructDefinition(node->scope, node->methodCallConstructName);
