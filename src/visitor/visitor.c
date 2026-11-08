@@ -4,6 +4,7 @@
 #include "../include/token.h"
 #include "../include/builtin_functions.h"
 #include "../include/diagnostic.h"
+#include "../include/profiler.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,6 +29,8 @@ value_T* visitorVisit(visitor_T* visitor, ast_T* node) {
 	if (!node) {
 		return (void*)0;
 	}
+	
+	 PROFILE_AST_VISIT(node->type);
 		
 	switch(node->type) {
 		

@@ -1,0 +1,271 @@
+int iterations = 1000000;
+
+construct Player {
+    int x;
+    int y;
+};
+
+namespace Math {
+    func add(int a, int b) -> int {
+        return a + b;
+    };
+};
+
+func benchmarkArithmetic() -> noval {
+    std:io.print("[1] Arithmetic");
+
+    std:util.timer_begin();
+
+    int result = 0;
+    for (int i = 0; i < iterations; i += 1) {
+        result += i;
+    };
+
+    std:util.timer_end();
+    std:io.print("Result:", result);
+    std:io.print("");
+};
+
+func benchmarkExpressions() -> noval {
+    std:io.print("[2] Nested expressions");
+
+    std:util.timer_begin();
+
+    int result = 0;
+    for (int i = 0; i < iterations; i += 1) {
+        result += (i * 2 + 10 - 5) / 3;
+    };
+
+    std:util.timer_end();
+    std:io.print("Result:", result);
+    std:io.print("");
+};
+
+func benchmarkVariableAccess() -> noval {
+    std:io.print("[3] Variable access");
+
+    int a = 10;
+    int b = 20;
+    int c = 30;
+    int result = 0;
+
+    std:util.timer_begin();
+
+    for (int i = 0; i < iterations; i += 1) {
+        result = a + b + c;
+    };
+
+    std:util.timer_end();
+    std:io.print("Result:", result);
+    std:io.print("");
+};
+
+func benchmarkAssignments() -> noval {
+    std:io.print("[4] Variable assignments");
+
+    int result = 0;
+
+    std:util.timer_begin();
+
+    for (int i = 0; i < iterations; i += 1) {
+        result = i;
+    };
+
+    std:util.timer_end();
+    std:io.print("Result:", result);
+    std:io.print("");
+};
+
+func benchmarkFunctionCalls() -> noval {
+    std:io.print("[5] Function calls");
+
+    std:util.timer_begin();
+
+    int result = 0;
+    for (int i = 0; i < iterations; i += 1) {
+        result = Math:add(i, 1);
+    };
+
+    std:util.timer_end();
+    std:io.print("Result:", result);
+    std:io.print("");
+};
+
+func add(int a, int b) -> int {
+    return a + b;
+};
+
+func benchmarkRecursion() -> noval {
+    std:io.print("[6] Recursive calls");
+
+    std:util.timer_begin();
+
+    int result = factorial(12);
+
+    std:util.timer_end();
+    std:io.print("Result:", result);
+    std:io.print("");
+};
+
+func factorial(int n) -> int {
+    if (n <= 1) {
+        return 1;
+    };
+
+    return n * factorial(n - 1);
+};
+
+func benchmarkConditionals() -> noval {
+    std:io.print("[7] Conditional evaluation");
+
+    int result = 0;
+
+    std:util.timer_begin();
+
+    for (int i = 0; i < iterations; i += 1) {
+        if (i % 2 == 0) {
+            result += 1;
+        } else {
+            result -= 1;
+        };
+    };
+
+    std:util.timer_end();
+    std:io.print("Result:", result);
+    std:io.print("");
+};
+
+func benchmarkWhileLoop() -> noval {
+    std:io.print("[8] While loop");
+
+    int i = 0;
+    int result = 0;
+
+    std:util.timer_begin();
+
+    while (i < iterations) {
+        result += i;
+        i += 1;
+    };
+
+    std:util.timer_end();
+    std:io.print("Result:", result);
+    std:io.print("");
+};
+
+func benchmarkConstructs() -> noval {
+    std:io.print("[9] Construct initialization and field access");
+
+    Player player = construct Player(.x = 10, .y = 20);
+
+    int result = 0;
+
+    std:util.timer_begin();
+
+    for (int i = 0; i < iterations; i += 1) {
+        result = player.x + player.y;
+    };
+
+    std:util.timer_end();
+    std:io.print("Result:", result);
+    std:io.print("");
+};
+
+func benchmarkArrays() -> noval {
+    std:io.print("[10] Array access");
+
+    array numbers = std:array(100) -> int;
+    for (int i = 0; i < std:array.capacity(numbers); i += 1) {
+        std:array.add(numbers, i);
+    };
+
+    int result = 0;
+
+    std:util.timer_begin();
+
+    for (int i = 0; i < iterations; i += 1) {
+        result += std:array.at(numbers, (i % 100));
+    };
+
+    std:util.timer_end();
+    std:io.print("Result:", result);
+    std:io.print("");
+};
+
+func benchmarkNamespaces() -> noval {
+    std:io.print("[11] Namespace function dispatch");
+
+    int result = 0;
+
+    std:util.timer_begin();
+
+    for (int i = 0; i < iterations; i += 1) {
+        result = Math:add(i, 1);
+    };
+
+    std:util.timer_end();
+    std:io.print("Result:", result);
+    std:io.print("");
+};
+
+func benchmarkModulus() -> noval {
+    std:io.print("[12] Modulus");
+
+    int result = 0;
+
+    std:util.timer_begin();
+
+    for (int i = 0; i < iterations; i += 1) {
+        result += i % 100;
+    };
+
+    std:util.timer_end();
+    std:io.print("Result:", result);
+    std:io.print("");
+};
+
+func empty() -> noval {
+    return;
+};
+
+func benchmarkEmptyCalls() -> noval {
+    std:io.print("[13] Empty function calls");
+
+    std:util.timer_begin();
+
+    for (int i = 0; i < iterations; i += 1) {
+        empty();
+    };
+
+    std:util.timer_end();
+    std:io.print("");
+};
+
+func main() -> noval {
+    std:io.print("==================================");
+    std:io.print("          DARA BENCHMARKS");
+    std:io.print("==================================");
+    std:io.print("Iterations:", iterations);
+    std:io.print("");
+
+    benchmarkArithmetic();
+    benchmarkExpressions();
+    benchmarkVariableAccess();
+    benchmarkAssignments();
+    benchmarkFunctionCalls();
+    benchmarkRecursion();
+    benchmarkConditionals();
+    benchmarkWhileLoop();
+    benchmarkConstructs();
+    benchmarkArrays();
+    benchmarkNamespaces();
+    benchmarkModulus();
+    benchmarkEmptyCalls();
+
+    std:io.print("==================================");
+    std:io.print("       BENCHMARKS COMPLETE");
+    std:io.print("==================================");
+    std:io.print("");
+};
+
+main();

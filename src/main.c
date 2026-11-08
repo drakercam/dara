@@ -7,6 +7,7 @@
 #include "include/value.h"
 #include "include/scope.h"
 #include "include/builtin_registry.h"
+#include "include/profiler.h"
 
 void printHelp() {
 	printf("Usage:\n dara <filename>\n");
@@ -36,6 +37,10 @@ int main(int argc, char* argv[]) {
 	astFree(root);
 	parserFree(parser);
 	lexerFree(lexer);
+	
+	#ifdef PROFILE
+		profilerReport(stderr);
+	#endif
 
 	return 0;
 }

@@ -33,7 +33,8 @@ typedef struct TOKEN_STRUCT {
 		TOKEN_COLON,
 		TOKEN_DOT,
 		TOKEN_AMPERSAND,
-		TOKEN_EOF
+		TOKEN_EOF,
+		TOKEN_MODULUS
 	} type;
 	
 	char* value;

@@ -1,0 +1,66 @@
+construct Window {
+	int width;
+	int height;
+	string title;
+	
+	func init(Window window) -> noval {
+		rl:InitWindow(window.width, window.height, window.title);
+	};
+	
+	func close() -> noval {
+		rl:CloseWindow();
+	};
+};
+
+const auto c = rl:BLUE;
+const auto background = rl:GREEN;
+
+construct Rectangle {
+    int x;
+    int y;
+    int sizeX;
+    int sizeY;
+    
+    func draw(Rectangle rect) -> noval {
+        rl:DrawRectangle(rect.x, rect.y, rect.sizeX, rect.sizeY, c);
+    };
+};
+
+func update() -> noval {};
+
+func draw(const array rectangles) -> noval {
+    rl:BeginDrawing();
+
+    rl:ClearBackground(background);
+
+    for (int i = 0; i < std:array.size(rectangles); i += 1) {
+        auto rect = std:array.at(rectangles, i);
+        Rectangle.draw(rect);
+    };
+
+    rl:EndDrawing();
+};
+
+func main() -> noval {
+    Window window = construct Window(
+		.width = 800,
+		.height = 600,
+		.title = "example"
+    );
+    Window.init(window);
+    
+    array rectangles = std:array(4) -> Rectangle;
+    std:array.add(rectangles, construct Rectangle(.x = 100, .y = 100, .sizeX = 200, .sizeY = 200));
+    std:array.add(rectangles, construct Rectangle(.x = 300, .y = 300, .sizeX = 150, .sizeY = 180));
+    std:array.add(rectangles, construct Rectangle(.x = 600, .y = 100, .sizeX = 100, .sizeY = 125));
+    std:array.add(rectangles, construct Rectangle(.x = 600, .y = 300, .sizeX = 75, .sizeY = 90));
+
+    while (!rl:WindowShouldClose()) {
+        update();
+        draw(rectangles);
+    };
+
+    Window.close();
+};
+
+main();

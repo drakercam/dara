@@ -1,4 +1,4 @@
-# Dara v0.4
+# Dara v0.5
 
 Dara is an interpreted programming language written in C. It features explicit types, functions, constructs, namespaces, reference parameters, structured diagnostics, arrays, mixed numeric arithmetic, constant variables, a unified callable registry, and native Raylib bindings.
 
@@ -24,6 +24,15 @@ Build Dara with the included Makefile:
 ```sh
 make
 ```
+
+This builds the regular release configuration. To explicitly build either configuration:
+
+```sh
+make debug
+make release
+```
+
+The debug configuration enables runtime profiling instrumentation. The release configuration builds without profiling instrumentation.
 
 Run a source file:
 
@@ -396,7 +405,7 @@ Namespaces organize declarations under qualified names. The `:` separator is use
 std:io.print("Hello, Dara!");
 
 func main() -> noval {
-    std:io.print("Running Dara v0.3");
+    std:io.print("Running Dara v0.4");
 };
 
 main();
@@ -457,9 +466,87 @@ namespace b {
 
 This example demonstrates namespace-qualified mutual recursion. Since neither function has a termination condition, calling either function results in infinite recursion.
 
-`std:io.print()` is the standard print builtin.
+## Standard utilities (`std:util`)
 
-`std:util.typeof()` is the standard type-checking builtin. It returns a string representing the target's type.
+The `std:util` namespace provides general-purpose runtime utilities.
+
+### `std:util.typeof(value)`
+
+Returns a string describing the runtime type of the supplied value.
+
+```dara
+int number = 42;
+float decimal = 3.14;
+string name = "Dara";
+bool enabled = true;
+
+std:io.print(std:util.typeof(number));
+std:io.print(std:util.typeof(decimal));
+std:io.print(std:util.typeof(name));
+std:io.print(std:util.typeof(enabled));
+```
+
+`typeof` expects exactly one argument.
+
+### `std:util.timer_begin()`
+
+Starts or restarts the runtime performance timer.
+
+```dara
+std:util.timer_begin();
+```
+
+This function takes no arguments and does not print anything. It records the starting time using a monotonic clock, making it suitable for measuring elapsed execution time.
+
+### `std:util.timer_end()`
+
+Stops the active timer and prints the elapsed time in seconds and milliseconds.
+
+```dara
+std:util.timer_end();
+```
+
+This function takes no arguments. It must be called after `std:util.timer_begin()`; otherwise, a runtime diagnostic is reported.
+
+Calling `timer_begin()` again restarts the timer from the new starting point. Calling `timer_end()` finishes the measurement and resets the timer state.
+
+#### Benchmarking example
+
+The timer can be used to measure the execution time of a section of Dara code:
+
+```dara
+int numIterations = 1000000;
+
+func main() -> noval {
+    std:util.timer_begin();
+
+    int result = 0;
+
+    for (int i = 0; i < numIterations; i += 1) {
+        result += i;
+    };
+
+    std:util.timer_end();
+};
+
+main();
+```
+
+Example output:
+
+```text
+Elapsed time: 0.341272 seconds (341.272 ms)
+```
+
+The displayed time is illustrative; actual results depend on the workload and system.
+
+**Benchmarking considerations:**
+
+- The timer measures the code executed between `timer_begin()` and `timer_end()`.
+- It measures runtime execution, not parsing or AST construction, because Dara parses the source before executing the program.
+- Run benchmarks multiple times and compare repeated measurements rather than relying on a single result.
+- Keep the workload identical when comparing different implementations.
+- Avoid including unrelated operations, such as printing, inside the timed section unless those operations are part of what you intend to measure.
 
 ## Reference parameters
 
@@ -613,6 +700,123 @@ Dara reports language errors using diagnostic categories, error codes, source lo
 The C runtime manages allocated values and their owned resources. Reference parameters borrow existing storage and must not free the values they reference. Ordinary arguments use value semantics. Constant bindings enforce read-only access without changing the underlying runtime value representation.
 
 The callable registry does not own Dara function AST nodes. It stores references to definitions owned by the program AST. Native callable entries store C function pointers. This keeps function registration separate from AST and runtime-value ownership.
+
+## Performance and profiling
+
+Dara includes an optional runtime profiler for investigating interpreter performance and identifying expensive operations.
+
+The profiler is enabled in the debug build and reports its results after program execution. The release build does not include profiling instrumentation.
+
+### Profiling metrics
+
+The profiler currently tracks several categories of runtime activity:
+
+- **Value allocations:** Number of runtime `value_T` allocations and frees, cumulative bytes allocated, current live values, and peak live values.
+- **Variable lookups:** Number of variable lookups, comparisons, scope traversals, and maximum scope depth.
+- **Callable lookups:** Number of callable lookups, comparisons, scope traversals, and maximum scope depth.
+- **Function dispatch:** Number of native C function calls, interpreted Dara function calls, and array method dispatches.
+- **AST visits:** Number of visits to each supported AST node type.
+
+Value allocation statistics track the outer `value_T` objects. They do not include every internal allocation made for strings, arrays, constructs, or their backing storage. Cumulative allocated bytes represent total allocation traffic, not peak memory consumption.
+
+### Running the profiler
+
+Build the debug configuration:
+
+```sh
+make debug
+```
+
+Run a benchmark or Dara source file:
+
+```sh
+./dara.out examples/dara_benchmarks.dara
+```
+
+To measure normal execution performance, build the release configuration:
+
+```sh
+make release
+```
+
+The debug and release configurations produce the same executable name, `dara.out`. Their object files are maintained in separate build directories to prevent profiling and non-profiling objects from being mixed.
+
+### Benchmarking
+
+Dara includes `examples/dara_benchmarks.dara`, which exercises several interpreter operations using a workload of one million iterations.
+
+The benchmark currently covers:
+
+1. Arithmetic
+2. Nested expressions
+3. Variable access
+4. Variable assignments
+5. Function calls
+6. Recursive calls
+7. Conditional evaluation
+8. While loops
+9. Construct initialization and field access
+10. Array access
+11. Namespace function dispatch
+12. Modulus
+13. Empty function calls
+
+Use the debug build to inspect operation counts and allocation statistics. Use the release build to compare execution times without profiler instrumentation.
+
+For meaningful comparisons:
+
+- Keep the benchmark workload identical.
+- Run benchmarks multiple times.
+- Compare release timings against other release timings.
+- Use profiler output to understand where runtime work is occurring.
+- Avoid treating cumulative allocation bytes as actual RAM usage.
+
+### Array access optimization
+
+Profiling identified unnecessary deep copying as a major source of overhead in array operations.
+
+Previously, read-only array methods evaluated their array argument through the normal visitor path. Variable evaluation returns a deep copy of the stored value. Consequently, operations such as `std:array.size()`, `std:array.capacity()`, and `std:array.at()` could copy an entire array just to inspect its size or retrieve one element.
+
+This was particularly expensive for repeated indexed access.
+
+The array visitor was optimized to distinguish between borrowed values and owned temporaries:
+
+- Existing variables and member-access expressions are accessed directly through their stored values.
+- Expressions that produce arrays are evaluated normally and treated as owned temporaries.
+- Borrowed values are never freed by the array operation.
+- Owned temporaries are released after the operation completes.
+
+The optimization applies to the read-only operations `size`, `capacity`, `at`, and `carve`. The source argument of `mend` also uses this approach.
+
+Value semantics are preserved:
+
+- `at` returns an independent copy of the selected element.
+- `carve` creates an independent array containing copies of the selected elements.
+- `mend` appends copies of the selected source elements.
+- Existing array mutation operations continue to access the actual stored array through their mutable argument resolution path.
+
+This avoids copying an entire existing array when only a small amount of information or a subset of its elements is required.
+
+#### Optimization results
+
+The following results were recorded using the Dara benchmark suite and profiler:
+
+| Metric | Before optimization | After optimization |
+|---|---:|---:|
+| Array access time | 4.405 s | 0.765 s |
+| Value allocations | 240,006,342 | 139,001,191 |
+| Value frees | 240,006,342 | 139,001,191 |
+| Cumulative allocated bytes | 7.68 GB | 4.45 GB |
+| Peak live values | 224 | 126 |
+
+The array benchmark became approximately 5.75 times faster, an improvement of approximately 82.6%.
+
+Total tracked value allocations decreased by approximately 42.1%. Peak live values also decreased, from 224 to 126.
+
+These results demonstrate the cost of unnecessary deep copying in the interpreter and the benefits of avoiding copies when existing values can safely be borrowed.
+
+The measurements are specific to the benchmark workload and system used. They should not be treated as universal performance guarantees.
+
 
 ## Current limitations
 

@@ -100,7 +100,7 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 		if (isdigit((unsigned char)lexer->c))
 			return lexerCollectNumber(lexer);
 
-		if (isalpha((unsigned char)lexer->c))
+		if (isalpha((unsigned char)lexer->c) || lexer->c == '_')
 			return lexerCollectID(lexer);
 		
 		if (lexer->c == '"') {
@@ -136,6 +136,10 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 			case ',':
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_COMMA, lexerGetCurrCharAsStr(lexer)));
 				break;
+			case '%':
+				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_MODULUS, lexerGetCurrCharAsStr(lexer)));
+				break;
+				
 			case '+':
 				if (lexer->contents[lexer->index + 1] == '=') {	// += operator
 					char* value = calloc(3, sizeof(char));
@@ -300,7 +304,7 @@ token_T* lexerCollectID(lexer_T* lexer) {
 	char* value = calloc(1, sizeof(char));
 	value[0] = '\0';
 	
-	while (isalnum(lexer->c)) {	// while the character is alphanumeric
+	while (isalnum(lexer->c) || lexer->c == '_') {	// while the character is alphanumeric
 		char* s = lexerGetCurrCharAsStr(lexer);
 		value = realloc(value, (strlen(value) + strlen(s) + 1) * sizeof(char));
 		strcat(value, s);

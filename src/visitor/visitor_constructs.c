@@ -12,6 +12,7 @@
  */
 
 value_T* visitorCreateDefaultConstruct(visitor_T* visitor, scope_T* scope, ast_T* definition, const char** typeStack, size_t depth) {
+    
     // Prevent infinite recursion from cyclic construct fields.
     if (depth >= 64) {
         visitorReportDiagnostic(visitor, definition, "E2012", "Construct nesting exceeds the maximum depth of 64.");

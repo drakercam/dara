@@ -1,9 +1,0 @@
-func dosomething(x, y) {
-	print(x);
-	print(y);
-};
-
-dosomething("hello", "world");
-
-print(std:str.concat("hello", "world"));
-print("hello" + "world");

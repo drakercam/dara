@@ -173,6 +173,19 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
 
                 result = intA / intB;
                 break;
+                
+			case TOKEN_MODULUS:
+				if (intB == 0) {
+					visitorReportDiagnostic(
+						visitor, node, "E2028", "Modulus by zero."
+					);
+					valueFree(left);
+					valueFree(right);
+					return (void*)0;
+				}
+				
+				result = intA % intB;
+				break;
 
             default:
                 visitorReportDiagnostic(
@@ -219,6 +232,19 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
 
             result = a / b;
             break;
+            
+        case TOKEN_MODULUS:
+			if (b == 0.0) {
+				visitorReportDiagnostic(
+					visitor, node, "E2028", "Modulus by zero."
+				);
+				valueFree(left);
+				valueFree(right);
+				return (void*)0;
+			}
+			
+			result = (int)a % (int)b;
+			break;
 
         default:
             visitorReportDiagnostic(
