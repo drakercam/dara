@@ -4,6 +4,7 @@
 #include "ast.h"
 #include "value.h"
 #include <stdbool.h>
+#include <time.h>
 
 typedef struct VISITOR_STRUCT {
 	bool shouldReturn;
@@ -11,6 +12,10 @@ typedef struct VISITOR_STRUCT {
 	ast_T* currentConstruct;
 	
 	const char* fileName;
+	
+	struct timespec timerStart;
+	bool timerStarted;
+	
 } visitor_T;
 
 visitor_T* visitorInit();

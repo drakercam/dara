@@ -53,7 +53,7 @@ ast_T* parserParseExpression(parser_T* parser, scope_T* scope) {
 ast_T* parserParseTerm(parser_T* parser, scope_T* scope) {
 	ast_T* left = parserParseUnary(parser, scope);
 
-	while (parser->currentToken->type == TOKEN_MULTIPLY || parser->currentToken->type == TOKEN_DIVIDE) {
+	while (parser->currentToken->type == TOKEN_MULTIPLY || parser->currentToken->type == TOKEN_DIVIDE || parser->currentToken->type == TOKEN_MODULUS) {
 		token_T* operationToken = parser->currentToken;
 		int operationType = parser->currentToken->type;
 		parserEat(parser, operationType);

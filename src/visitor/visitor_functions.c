@@ -2,6 +2,7 @@
 #include "../include/scope.h"
 #include "../include/value.h"
 #include "../include/builtin_functions.h"
+#include "../include/profiler.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -356,6 +357,8 @@ value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node) {
 	}
 	
 	if (callable->type == CALLABLE_NATIVE) {
+		PROFILE_NATIVE_CALL();
+		
 		return callable->implementation.nativeFunction(visitor, node->functionCallArguments, (int)node->functionCallArgumentsSize);
 	}
 	
@@ -402,6 +405,8 @@ value_T* visitorVisitFunctionCall(visitor_T* visitor, ast_T* node) {
 	
 	bool previousShouldReturn = visitor->shouldReturn;
 	visitor->shouldReturn = false;
+
+	PROFILE_DARA_CALL();
 
 	value_T* result = visitorVisit(visitor, funcDef->functionDefinitionBody);
 
@@ -503,6 +508,7 @@ value_T* visitorVisitMethodCall(visitor_T* visitor, ast_T* node) {
 	
 	if (strcmp(node->methodCallConstructName, "std:array") == 0) {
 		// dispatch to std:array builtins
+		PROFILE_ARRAY_CALL();
 		
 		return visitorVisitArrayMethodCall(visitor, node);
 	}
@@ -517,6 +523,7 @@ value_T* visitorVisitMethodCall(visitor_T* visitor, ast_T* node) {
 	callable_T* callable = scopeGetCallable(node->scope, callableName);
 
 	if (callable && callable->type == CALLABLE_NATIVE) {
+		PROFILE_NATIVE_CALL();
 		return callable->implementation.nativeFunction(visitor, node->methodCallArguments, (int)node->methodCallArgumentsSize);
 	}
 	
@@ -595,9 +602,9 @@ value_T* visitorVisitMethodCall(visitor_T* visitor, ast_T* node) {
 
 	visitor->currentMethod = method;
 	visitor->currentConstruct = construct;
-
     visitor->shouldReturn = false;
 
+	PROFILE_DARA_CALL();
     value_T* result = visitorVisit(visitor, method->functionDefinitionBody);
 
     bool didReturn = visitor->shouldReturn;

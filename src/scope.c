@@ -1,5 +1,6 @@
 #include "include/scope.h"
 #include "include/ast.h"
+#include "include/profiler.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -192,23 +193,26 @@ callable_T* scopeGetCallable(scope_T* scope,const char* qualifiedName) {
     if (scope == NULL || qualifiedName == NULL) {
         return NULL;
     }
-
-    scope_T* currentScope = scope;
-
-    while (currentScope != NULL) {
-        callable_T* callable = scopeFindLocalCallable(
-            currentScope,
-            qualifiedName
-        );
-
-        if (callable != NULL) {
-            return callable;
-        }
-
-        currentScope = currentScope->parent;
-    }
-
-    return NULL;
+    
+    PROFILE_CALLABLE_LOOKUP();
+    
+    size_t depth = 0;
+    
+    for (scope_T* currentScope = scope; currentScope != NULL; currentScope = currentScope->parent) {
+		PROFILE_CALLABLE_SCOPE(++depth);
+		
+		for (size_t i = 0; i < currentScope->callablesSize; ++i) {
+			callable_T* callable = currentScope->callables[i];
+			
+			PROFILE_CALLABLE_COMPARE();
+			
+			if (strcmp(callable->name, qualifiedName) == 0) {
+				return callable;
+			}
+		}
+	}
+	
+	return NULL;
 }
 
 static variable_T* scopeAddVariableWithOwnership(scope_T* scope, const char* name, value_T* value, bool ownsValue) {
@@ -261,21 +265,31 @@ variable_T* scopeAddReferenceVariable(scope_T* scope, const char* name, value_T*
 }
 
 variable_T* scopeGetVariable(scope_T* scope, const char* name) {
-    scope_T* currentScope = scope;
+	if (scope == NULL || name == NULL) {
+        return NULL;
+    }
+    
+    PROFILE_VARIABLE_LOOKUP();
 
-    while (currentScope != (void*)0) {
-        for (size_t i = currentScope->variablesSize; i-- > 0;) {
-            variable_T* variable = currentScope->variables[i];
+	size_t depth = 0;
+
+	for (scope_T* currentScope = scope; currentScope != NULL; currentScope = currentScope->parent) {
+
+		PROFILE_VARIABLE_SCOPE(++depth);
+		
+		// Search variables in reverse registration order.
+		for (size_t i = currentScope->variablesSize; i-- > 0;) {
+			variable_T* variable = currentScope->variables[i];
+
+            PROFILE_VARIABLE_COMPARE();
 
             if (strcmp(variable->name, name) == 0) {
                 return variable;
             }
-        }
+		}
+	}
 
-        currentScope = currentScope->parent;
-    }
-
-    return (void*)0;
+    return NULL;
 }
 
 variable_T* scopeAddConstant(scope_T* scope, const char* name, value_T* value) {

@@ -206,14 +206,35 @@ static array_T* arrayCreateLike(
 }
 
 /*
- * Evaluates an expression that must produce an array.
- * The returned value is an owned temporary and must be freed.
+ * Resolves an array argument without copying existing variables or fields.
+ *
+ * Variable and member-access arguments borrow their stored value.
+ * Other expressions are evaluated normally and produce owned temporaries.
+ *
+ * The caller must only free the returned value when *owned is true.
  */
-static value_T* arrayEvaluateArgument(
+static value_T* arrayGetReadOnlyArgument(
     visitor_T* visitor,
-    ast_T* node
+    ast_T* node,
+    bool* owned
 ) {
-    value_T* value = visitorVisit(visitor, node);
+    if (!owned) {
+        return (void*)0;
+    }
+
+    *owned = false;
+
+    value_T* value;
+
+    if (node &&
+        (node->type == AST_VARIABLE ||
+         node->type == AST_MEMBER_ACCESS)) {
+        value = visitorGetAssignmentTargetValue(visitor, node);
+    }
+    else {
+        value = visitorVisit(visitor, node);
+        *owned = true;
+    }
 
     if (!value) {
         return (void*)0;
@@ -227,11 +248,23 @@ static value_T* arrayEvaluateArgument(
             "Array operation requires a valid array argument."
         );
 
-        valueFree(value);
+        if (*owned) {
+            valueFree(value);
+        }
+
         return (void*)0;
     }
 
     return value;
+}
+
+/*
+ * Frees an array argument only when it is an owned temporary.
+ */
+static void arrayReleaseReadOnlyArgument(value_T* value, bool owned) {
+    if (owned) {
+        valueFree(value);
+    }
 }
 
 /*
@@ -395,7 +428,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 		strcmp(node->methodCallName, "capacity") == 0 ||
 		strcmp(node->methodCallName, "add") == 0 ||
 		strcmp(node->methodCallName, "at") == 0 ||
-		strcmp(node->methodCallName, "carve") == 0 ||
+		strcmp(node->methodCallName, "carve") == 0 || 
 		strcmp(node->methodCallName, "mend") == 0 ||
 		strcmp(node->methodCallName, "erase") == 0 ||
 		strcmp(node->methodCallName, "grow") == 0) {
@@ -569,10 +602,18 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 				return valueInit(VALUE_NULL);
 			}
 
-			/* mend(destination, source, start, end) */
-			value_T* sourceValue = arrayEvaluateArgument(
-				visitor, node->methodCallArguments[1]
-			);
+			/*
+             * mend(destination, source, start, end)
+             *
+             * The source can be borrowed if it is an existing variable
+             * or field, avoiding a deep copy of the entire source array.
+             */
+            bool sourceOwned;
+			value_T* sourceValue = arrayGetReadOnlyArgument(
+                visitor,
+                node->methodCallArguments[1],
+                &sourceOwned
+            );
 
 			if (!sourceValue) {
 				return (void*)0;
@@ -583,7 +624,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 			size_t end;
 
 			if (!arrayEvaluateIndex(visitor, node->methodCallArguments[2], &start) || !arrayEvaluateIndex(visitor, node->methodCallArguments[3], &end)) {
-				valueFree(sourceValue);
+				arrayReleaseReadOnlyArgument(sourceValue, sourceOwned);
 				return (void*)0;
 			}
 
@@ -592,7 +633,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 					visitor, node, "E2047",
 					"Invalid array range for mend."
 				);
-				valueFree(sourceValue);
+				arrayReleaseReadOnlyArgument(sourceValue, sourceOwned);
 				return (void*)0;
 			}
 
@@ -603,7 +644,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 					visitor, node, "E2045",
 					"Array capacity exceeded."
 				);
-				valueFree(sourceValue);
+				arrayReleaseReadOnlyArgument(sourceValue, sourceOwned);
 				return (void*)0;
 			}
 
@@ -613,7 +654,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 						visitor, node, "E2044",
 						"Source element type does not match the destination array type."
 					);
-					valueFree(sourceValue);
+					arrayReleaseReadOnlyArgument(sourceValue, sourceOwned);
 					return (void*)0;
 				}
 			}
@@ -625,7 +666,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 			value_T** copies = calloc(count ? count : 1, sizeof(value_T*));
 
 			if (!copies) {
-				valueFree(sourceValue);
+				arrayReleaseReadOnlyArgument(sourceValue, sourceOwned);
 				visitorReportDiagnostic(
 					visitor, node, "E2004",
 					"Failed to allocate array elements."
@@ -642,7 +683,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 					}
 
 					free(copies);
-					valueFree(sourceValue);
+					arrayReleaseReadOnlyArgument(sourceValue, sourceOwned);
 
 					visitorReportDiagnostic(
 						visitor,
@@ -668,13 +709,15 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 		}
 
 		/*
-		 * Read-only methods evaluate their array argument normally.
-		 * Variable evaluation returns a deep copy, so these operations
-		 * cannot accidentally modify the stored array.
-		 */
-		value_T* argument = arrayEvaluateArgument(
-			visitor, node->methodCallArguments[0]
-		);
+         * Read-only methods borrow existing arrays whenever possible.
+         * Expressions that produce arrays are still evaluated normally.
+         */
+        bool argumentOwned;
+		value_T* argument = arrayGetReadOnlyArgument(
+            visitor,
+            node->methodCallArguments[0],
+            &argumentOwned
+        );
 
 		if (!argument) {
 			return (void*)0;
@@ -689,7 +732,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 				? array->size
 				: array->capacity;
 
-			valueFree(argument);
+			arrayReleaseReadOnlyArgument(argument, argumentOwned);
 
 			if (resultValue > (size_t)INT_MAX) {
 				visitorReportDiagnostic(
@@ -700,6 +743,9 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 			}
 
 			value_T* result = valueInit(VALUE_INT);
+			if (!result) {
+                return NULL;
+            }
 			result->intValue = (int)resultValue;
 
 			return result;
@@ -711,7 +757,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 			if (!arrayEvaluateIndex(
 				visitor, node->methodCallArguments[1], &index
 			)) {
-				valueFree(argument);
+				arrayReleaseReadOnlyArgument(argument, argumentOwned);
 				return (void*)0;
 			}
 
@@ -720,13 +766,13 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 					visitor, node, "E2046",
 					"Array index is out of bounds."
 				);
-				valueFree(argument);
+				arrayReleaseReadOnlyArgument(argument, argumentOwned);
 				return (void*)0;
 			}
 
 			value_T* result = valueCopy(array->elements[index]);
 
-			valueFree(argument);
+			arrayReleaseReadOnlyArgument(argument, argumentOwned);
 			return result;
 		}
 
@@ -735,13 +781,8 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 			size_t start;
 			size_t end;
 
-			if (!arrayEvaluateIndex(
-					visitor, node->methodCallArguments[1], &start
-				) ||
-				!arrayEvaluateIndex(
-					visitor, node->methodCallArguments[2], &end
-				)) {
-				valueFree(argument);
+			if (!arrayEvaluateIndex(visitor, node->methodCallArguments[1], &start) || !arrayEvaluateIndex(visitor, node->methodCallArguments[2], &end)) {
+				arrayReleaseReadOnlyArgument(argument, argumentOwned);
 				return (void*)0;
 			}
 
@@ -750,7 +791,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 					visitor, node, "E2047",
 					"Invalid array range for carve."
 				);
-				valueFree(argument);
+				arrayReleaseReadOnlyArgument(argument, argumentOwned);
 				return (void*)0;
 			}
 
@@ -758,7 +799,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 			array_T* carved = arrayCreateLike(array, count);
 
 			if (!carved) {
-				valueFree(argument);
+				arrayReleaseReadOnlyArgument(argument, argumentOwned);
 				visitorReportDiagnostic(
 					visitor, node, "E2004",
 					"Failed to allocate carved array."
@@ -771,7 +812,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 
 				if (!carved->elements[i]) {
 					arrayFree(carved);
-					valueFree(argument);
+					arrayReleaseReadOnlyArgument(argument, argumentOwned);
 
 					visitorReportDiagnostic(
 						visitor,
@@ -787,13 +828,20 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 			}
 
 			value_T* result = valueInit(VALUE_ARRAY);
+			if (!result) {
+                arrayFree(carved);
+                arrayReleaseReadOnlyArgument(argument, argumentOwned);
+                return NULL;
+            }
+			
 			result->arrayValue = carved;
+			
+			arrayReleaseReadOnlyArgument(argument, argumentOwned);
 
-			valueFree(argument);
 			return result;
 		}
 
-		valueFree(argument);
+		arrayReleaseReadOnlyArgument(argument, argumentOwned);
 	}
 
 	visitorReportDiagnostic(

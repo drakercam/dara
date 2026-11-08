@@ -26,6 +26,10 @@ static value_T* visitorCreateDefaultValue(const char* typeName) {
         return valueInitString("");
     }
     
+    if (strcmp(typeName, "color") == 0) {
+		return valueInitColor(0,0,0,255);
+	}
+    
     if (strcmp(typeName, "array") == 0) {
 		array_T* array = calloc(1, sizeof(array_T));
 
@@ -120,6 +124,10 @@ value_T* visitorVisitVariableDefinition(visitor_T* visitor, ast_T* node) {
 	
 	else if (strcmp(declaredType, "array") == 0) {
 		typeMatches = value->type == VALUE_ARRAY;
+	}
+	
+	else if (strcmp(declaredType, "color") == 0) {
+		typeMatches = value->type == VALUE_COLOR;
 	}
 	
 	else if (strcmp(declaredType, "auto") != 0 &&

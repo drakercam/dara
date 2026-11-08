@@ -1,31 +1,44 @@
+
 EXEC = dara.out
 CC = gcc
 
-SRCS = $(shell find src -type f -name '*.c')
-OBJS = $(SRCS:.c=.o)
+CFLAGS = -std=c99 -D_POSIX_C_SOURCE=200809L
 
-FLAGS = -g
-CFLAGS = -std=c99
+DEBUG_FLAGS = -g -DPROFILE
+RELEASE_FLAGS = -g
+
+SRCS = $(shell find src -type f -name '*.c')
+
+DEBUG_OBJS = $(patsubst src/%.c,build/debug/%.o,$(SRCS))
+RELEASE_OBJS = $(patsubst src/%.c,build/release/%.o,$(SRCS))
+
 LIBS = -Iinclude -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
-.PHONY: all install clean
+.PHONY: all debug release install clean
 
-all: $(EXEC)
+# Default build
+all: release
 
-$(EXEC): $(OBJS)
-	$(CC) $(OBJS) $(FLAGS) -o $@ $(LIBS)
+# Profile-enabled debug build
+debug: $(DEBUG_OBJS)
+	$(CC) $(DEBUG_OBJS) $(DEBUG_FLAGS) -o $(EXEC) $(LIBS)
 
-src/%.o: src/%.c
-	$(CC) $(CFLAGS) $(FLAGS) -Iinclude -c $< -o $@
+# Normal build without profiling
+release: $(RELEASE_OBJS)
+	$(CC) $(RELEASE_OBJS) $(RELEASE_FLAGS) -o $(EXEC) $(LIBS)
 
-src/parser/%.o: src/parser/%.c
-	$(CC) $(CFLAGS) $(FLAGS) -Iinclude -c $< -o $@
+# Debug compilation
+build/debug/%.o: src/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(DEBUG_FLAGS) -Iinclude -c $< -o $@
 
-src/visitor/%.o: src/visitor/%.c
-	$(CC) $(CFLAGS) $(FLAGS) -Iinclude -c $< -o $@
+# Release compilation
+build/release/%.o: src/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(RELEASE_FLAGS) -Iinclude -c $< -o $@
 
-install: $(EXEC)
+install: release
 	cp ./$(EXEC) /usr/local/bin/dara
 
 clean:
-	rm -f $(EXEC) $(OBJS)
+	rm -rf build $(EXEC)

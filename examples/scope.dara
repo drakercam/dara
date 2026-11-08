@@ -1,7 +1,0 @@
-var x = "outside";
-
-func test(x) {
-    print(x);
-};
-
-test("inside");

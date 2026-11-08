@@ -1,5 +1,6 @@
 #include "include/value.h"
 #include "include/builtin_functions.h"
+#include "include/profiler.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +13,8 @@ value_T* valueInit(int type) {
 		printf("Value is null");
 		exit(1);
 	}
+	
+	PROFILE_VALUE_ALLOC(sizeof(value_T));
 	
 	value->type = type;
 	
@@ -73,6 +76,7 @@ void valueFree(value_T* value) {
     }
 
     valueFreeContents(value);
+    PROFILE_VALUE_FREE();
     free(value);
 }
 
@@ -87,6 +91,8 @@ void valueReplace(value_T* destination, value_T* source) {
 
     // Transfer the source's contents into the existing destination.
     memcpy(destination, source, sizeof(value_T));
+    
+    PROFILE_VALUE_FREE();
 
     // The destination now owns the transferred contents.
     // Free only the source's outer allocation.
