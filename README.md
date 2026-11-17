@@ -1,4 +1,4 @@
-# Dara v0.5
+# Dara v0.6
 
 Dara is an interpreted programming language written in C. It features explicit types, functions, constructs, namespaces, reference parameters, structured diagnostics, arrays, mixed numeric arithmetic, constant variables, a unified callable registry, and native Raylib bindings.
 
