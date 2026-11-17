@@ -5,12 +5,12 @@ construct Window {
 	
 	func init(Window window) -> noval {
 		rl:InitWindow(window.width, window.height, window.title);
-	};
+	}
 	
 	func close() -> noval {
 		rl:CloseWindow();
-	};
-};
+	}
+}
 
 func main() -> noval {
     Window window = construct Window(
@@ -19,20 +19,24 @@ func main() -> noval {
 		.title = "example"
     );
     Window.init(window);
+    
+    rl:SetTargetFPS(60);
 
     while (!rl:WindowShouldClose()) {
         rl:BeginDrawing();
 
         rl:ClearBackground(rl:WHITE);
+        
+        rl:DrawFPS(500, 500);
 
         rl:DrawRectangle(100, 100, 200, 150, rl:BLUE);
         rl:DrawRectangle(400, 100, 100, 100, rl:RED);
         rl:DrawRectangle(100, 300, 400, 50, rl:GREEN);
 
         rl:EndDrawing();
-    };
+    }
 
     Window.close();
-};
+}
 
 main();

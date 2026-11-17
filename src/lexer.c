@@ -90,6 +90,12 @@ void lexerSkipWhitespace(lexer_T* lexer) {
 	}
 }
 
+void lexerSkipComment(lexer_T* lexer) {
+	while (lexer->c != '\n' && lexer->c != '\0') {
+		lexerAdvance(lexer);
+	}
+}
+
 token_T* lexerGetNextToken(lexer_T* lexer) {
 	while (lexer->c != '\0' && lexer->index < strlen(lexer->contents)) {
 		if (isspace((unsigned char)lexer->c)) {
@@ -133,12 +139,16 @@ token_T* lexerGetNextToken(lexer_T* lexer) {
 			case '}':
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_RIGHTBRACE, lexerGetCurrCharAsStr(lexer)));
 				break;
+			case '#':
+				lexerSkipComment(lexer);
+				break;
 			case ',':
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_COMMA, lexerGetCurrCharAsStr(lexer)));
 				break;
 			case '%':
 				return lexerAdvanceWithToken(lexer, tokenInit(TOKEN_MODULUS, lexerGetCurrCharAsStr(lexer)));
 				break;
+			
 				
 			case '+':
 				if (lexer->contents[lexer->index + 1] == '=') {	// += operator

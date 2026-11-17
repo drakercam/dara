@@ -98,6 +98,55 @@ value_T* builtinRaylibFuncCloseWindow(visitor_T* visitor, ast_T** args, int args
     return valueInit(VALUE_NULL);
 }
 
+value_T* builtinRaylibFuncSetTargetFPS(visitor_T* visitor, ast_T** args, int argsSize) {
+	if (argsSize != 1) {
+		printf("DEBUG RUNTIME ERROR: rl:SetTargetFPS expects 1 argument\n");
+		return NULL;
+	}
+	
+	value_T* fps = visitorVisit(visitor, args[0]);
+	
+	if (fps == NULL) {
+		return NULL;
+	}
+	
+	if (fps->type != VALUE_INT) {
+		printf("DEBUG RUNTIME ERROR: rl:ClearBackground expects a integer argument\n");
+		valueFree(fps);
+		return NULL;
+	}
+	
+	SetTargetFPS(fps->intValue);
+	valueFree(fps);
+	return valueInit(VALUE_NULL);
+}
+
+value_T* builtinRaylibFuncDrawFPS(visitor_T* visitor, ast_T** args, int argsSize) {
+	if (argsSize != 2) {
+		printf("DEBUG RUNTIME ERROR: rl:DrawFPS expects 2 arguments\n");
+		return NULL;
+	}
+	
+	value_T* posX = visitorVisit(visitor, args[0]);
+	value_T* posY = visitorVisit(visitor, args[1]);
+	
+	if (posX == NULL || posY == NULL) {
+		return NULL;
+	}
+	
+	if (posX->type != VALUE_INT || posY->type != VALUE_INT) {
+		printf("DEBUG RUNTIME ERROR: rl:DrawFPS expects integer arguments\n");
+		valueFree(posX);
+		valueFree(posY);
+		return NULL;
+	}
+	
+	DrawFPS(posX->intValue, posY->intValue);
+	valueFree(posX);
+	valueFree(posY);
+	return valueInit(VALUE_NULL);
+}
+
 value_T* builtinRaylibFuncClearBackground(visitor_T* visitor, ast_T** args, int argsSize) {
 	if (argsSize != 1) {
         printf("DEBUG RUNTIME ERROR: rl:ClearBackground expects 1 argument\n");
