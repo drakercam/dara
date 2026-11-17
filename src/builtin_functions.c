@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <raylib.h>
 #include <string.h>
+#include <stdint.h>
+#include <inttypes.h>
 
 /*  //////////////////////////////////////////////////
  * 	Key Builtin functions for dara raylib integration
@@ -233,7 +235,7 @@ value_T* builtinRaylibGetConstant(const char* name) {
 				break;
 				
 			case VALUE_INT:
-				printf("%d ", value->intValue);
+				printf("%" PRId64 " ", value->intValue);
 				break;
 
 			case VALUE_FLOAT:
@@ -286,7 +288,7 @@ value_T* builtinFunctionAdd(visitor_T* visitor, ast_T** args, int argsSize) {
         return (void*)0;
     }
 
-    int resultInt = 0;
+    int64_t resultInt = 0;
     double resultFloat = 0.0;
     int resultType = first->type;
 

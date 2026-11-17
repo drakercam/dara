@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 
 /*
@@ -269,7 +270,7 @@ value_T* visitorVisitAssignment(visitor_T* visitor, ast_T* node) {
         }
 
         if (oldValue->type == VALUE_INT) {
-            int result;
+            int64_t result;
 
             if (node->assignmentOperator == TOKEN_PLUS_EQUAL) {
                 result = oldValue->intValue + newValue->intValue;

@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-
+#include <stdint.h>
 
 /*
  * Evaluates a string literal and returns a newly allocated string value.
@@ -23,7 +23,7 @@ value_T* visitorVisitNumber(visitor_T* visitor, ast_T* node) {
 		return valueInitFloat(node->numberValue);
 	}
 
-	return valueInitInt((int)node->numberValue);
+	return valueInitInt((int64_t)node->numberValue);
 }
 
 /*
@@ -142,9 +142,9 @@ value_T* visitorVisitBinaryOperation(visitor_T* visitor, ast_T* node) {
     bool isInt = left->type == VALUE_INT && right->type == VALUE_INT;
 
     if (isInt) {
-        int intA = left->intValue;
-        int intB = right->intValue;
-        int result;
+        int64_t intA = left->intValue;
+        int64_t intB = right->intValue;
+        int64_t result;
 
         switch (op) {
             case TOKEN_PLUS:

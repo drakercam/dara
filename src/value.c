@@ -99,7 +99,7 @@ void valueReplace(value_T* destination, value_T* source) {
     free(source);
 }
 
-value_T* valueInitInt(int number) {
+value_T* valueInitInt(int64_t number) {
 	value_T* value = valueInit(VALUE_INT);
 	
 	value->intValue = number;

@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef struct VALUE_STRUCT value_T;
 typedef struct ARRAY_STRUCT array_T;
@@ -36,7 +37,7 @@ struct VALUE_STRUCT {
 	} type;
 	
 	union {
-		int intValue;
+		int64_t intValue;
 		double floatValue;
 		char* stringValue;
 		bool booleanValue;
@@ -62,7 +63,7 @@ value_T* valueInit(int type);
 void arrayFree(array_T* array);
 void valueFree(value_T* value);
 
-value_T* valueInitInt(int number);
+value_T* valueInitInt(int64_t number);
 value_T* valueInitFloat(double number);
 value_T* valueInitString(const char* string);
 value_T* valueInitBoolean(bool boolean);
