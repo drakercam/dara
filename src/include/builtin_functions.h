@@ -30,8 +30,9 @@ value_T* builtinRaylibFuncBeginDrawing(visitor_T* visitor, ast_T** args, int arg
 value_T* builtinRaylibFuncEndDrawing(visitor_T* visitor, ast_T** args, int argsSize);
 value_T* builtinRaylibFuncCloseWindow(visitor_T* visitor, ast_T** args, int argsSize);
 value_T* builtinRaylibFuncClearBackground(visitor_T* visitor, ast_T** args, int argsSize);
-
 value_T* builtinRaylibFuncDrawRectangle(visitor_T* visitor, ast_T** args, int argsSize);
+value_T* builtinRaylibFuncSetTargetFPS(visitor_T* visitor, ast_T** args, int argsSize);
+value_T* builtinRaylibFuncDrawFPS(visitor_T* visitor, ast_T** args, int argsSize);
 
 /*
  * Resolves a raylib constant such as rl:WHITE or rl:BLUE.

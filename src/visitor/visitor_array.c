@@ -420,25 +420,53 @@ static bool arrayGrowCapacity(array_T* array, size_t factor) {
 	return true;
 }
 
+static bool isArrayMethod(visitor_T* visitor, ast_T* node) {
+	return  (strcmp(node->methodCallName, "size") == 0 ||
+			strcmp(node->methodCallName, "capacity") == 0 ||
+			strcmp(node->methodCallName, "add") == 0 ||
+			strcmp(node->methodCallName, "at") == 0 ||
+			strcmp(node->methodCallName, "carve") == 0 || 
+			strcmp(node->methodCallName, "mend") == 0 ||
+			strcmp(node->methodCallName, "erase") == 0 ||
+			strcmp(node->methodCallName, "grow") == 0);
+}
+
+static bool arrayMethodDoesntHaveNumArgs(int argCount, const char* methodName, int desiredCount) {
+	if (desiredCount == 1) {
+		return argCount != desiredCount &&
+			(strcmp(methodName, "size") == 0 ||
+			 strcmp(methodName, "capacity") == 0);
+	}
+	else if (desiredCount == 2) {
+		return argCount != desiredCount && 
+			(strcmp(methodName, "add") == 0 ||
+			 strcmp(methodName, "at") == 0 ||
+			 strcmp(methodName, "erase") == 0 ||
+			 strcmp(methodName, "grow") == 0);
+	}
+	
+	else if (desiredCount == 3) {
+		return argCount != desiredCount &&
+			(strcmp(methodName, "carve") == 0);
+	}
+	
+	else if (desiredCount == 4) {
+		return argCount != desiredCount &&
+			(strcmp(methodName, "mend") == 0);
+	}
+	
+	return true;
+}
+
 /*
  * Evaluates a method call belonging to the std:array namespace.
  */
 value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
-	if (strcmp(node->methodCallName, "size") == 0 ||
-		strcmp(node->methodCallName, "capacity") == 0 ||
-		strcmp(node->methodCallName, "add") == 0 ||
-		strcmp(node->methodCallName, "at") == 0 ||
-		strcmp(node->methodCallName, "carve") == 0 || 
-		strcmp(node->methodCallName, "mend") == 0 ||
-		strcmp(node->methodCallName, "erase") == 0 ||
-		strcmp(node->methodCallName, "grow") == 0) {
-
+	if (isArrayMethod(visitor, node)) {
 		int argCount = node->methodCallArgumentsSize;
 		const char* methodName = node->methodCallName;
 
-		if (argCount != 1 &&
-			(strcmp(methodName, "size") == 0 ||
-			 strcmp(methodName, "capacity") == 0)) {
+		if (arrayMethodDoesntHaveNumArgs(argCount, methodName, 1)) {
 			visitorReportDiagnostic(
 				visitor, node, "E2005",
 				"Array size and capacity methods expect exactly one argument."
@@ -446,11 +474,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 			return (void*)0;
 		}
 
-		if ((strcmp(methodName, "add") == 0 ||
-			 strcmp(methodName, "at") == 0 ||
-			 strcmp(methodName, "erase") == 0 ||
-			 strcmp(methodName, "grow") == 0) &&
-			argCount != 2) {
+		if (arrayMethodDoesntHaveNumArgs(argCount, methodName, 2)) {
 			visitorReportDiagnostic(
 				visitor, node, "E2005",
 				"Array add, at, erase, and grow methods expect exactly two arguments."
@@ -458,7 +482,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 			return (void*)0;
 		}
 
-		if (strcmp(methodName, "carve") == 0 && argCount != 3) {
+		if (arrayMethodDoesntHaveNumArgs(argCount, methodName, 3)) {
 			visitorReportDiagnostic(
 				visitor, node, "E2005",
 				"Array carve method expects exactly three arguments."
@@ -466,7 +490,7 @@ value_T* visitorVisitArrayMethodCall(visitor_T* visitor, ast_T* node) {
 			return (void*)0;
 		}
 
-		if (strcmp(methodName, "mend") == 0 && argCount != 4) {
+		if (arrayMethodDoesntHaveNumArgs(argCount, methodName, 4)) {
 			visitorReportDiagnostic(
 				visitor, node, "E2005",
 				"Array mend method expects exactly four arguments."

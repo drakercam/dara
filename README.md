@@ -16,6 +16,7 @@ Dara is an interpreted programming language written in C. It features explicit t
 - **Diagnostics:** Lexer, parser, and runtime errors with error codes and source locations.
 - **Memory management:** Runtime value ownership, copying, reference handling, and cleanup.
 - **Raylib:** Native bindings for window management, drawing, rectangles, and colors.
+- **Comments:** Ability to add comments via use of `#` infront of the statement.
 
 ## Build and run
 
@@ -51,12 +52,12 @@ sudo make install
 ```dara
 func add(int a, int b) -> int {
     return a + b;
-};
+}
 
 func main() -> noval {
     int result = add(20, 22);
     std:io.print(result);
-};
+}
 
 main();
 ```
@@ -84,6 +85,7 @@ std:io.print(health);
 ```
 
 Variables can use explicit types or `auto` to infer their type from an initializer. An uninitialized `auto` variable produces runtime diagnostic `E2001`.
+dara int's are int64_t on the backend.
 
 ### Constant variables
 
@@ -106,7 +108,7 @@ Constants can use the supported Dara types, including constructs and arrays:
 ```dara
 construct Player {
     int health;
-};
+}
 
 const Player player = construct Player(.health = 100);
 
@@ -150,7 +152,7 @@ func main() -> noval {
     std:io.print(5 < fraction);     // false, boolean
     std:io.print(5 / 2);            // 2, integer division
     std:io.print(5.0 / 2);          // 2.5, floating-point division
-};
+}
 
 main();
 ```
@@ -164,11 +166,11 @@ Functions declare their return type using `->`. Use `noval` for functions that d
 ```dara
 func greet(string name) -> noval {
     std:io.print(name);
-};
+}
 
 func multiply(int a, int b) -> int {
     return a * b;
-};
+}
 
 greet("Dara");
 std:io.print(multiply(6, 7));
@@ -186,7 +188,7 @@ func anyReturn(int x) -> auto {
     else {
         return 0.0;
     }
-};
+}
 
 float y = anyReturn(1);
 ```
@@ -196,11 +198,11 @@ A function marked with the `construct` return type can return ANY construct, pro
 ```dara
 construct Player {
     int a;
-};
+}
 
 construct Enemy {
     int b;
-};
+}
 
 func constructReturn(int x) -> construct {
     if (x > 5) {
@@ -209,7 +211,7 @@ func constructReturn(int x) -> construct {
     else {
         return construct Enemy(.b = x);
     }
-};
+}
 
 constructReturn(1);
 ```
@@ -219,11 +221,11 @@ A function marked with a specific `<construct name>` can ONLY return that specif
 ```dara
 construct Player {
     int a;
-};
+}
 
 func constructReturn() -> Player {
     return construct Player(.a = 10);
-};
+}
 
 Player player = constructReturn();
 ```
@@ -264,7 +266,7 @@ For example:
 ```dara
 func add(int a, int b) -> int {
     return a + b;
-};
+}
 ```
 
 The function is registered under:
@@ -279,8 +281,8 @@ A function inside a namespace receives a qualified name:
 namespace math {
     func add(int a, int b) -> int {
         return a + b;
-    };
-};
+    }
+}
 ```
 
 Its registry name becomes:
@@ -296,9 +298,9 @@ namespace game {
     namespace math {
         func add(int a, int b) -> int {
             return a + b;
-        };
-    };
-};
+        }
+    }
+}
 ```
 
 The resulting registry name is:
@@ -324,7 +326,7 @@ typedef value_T* (*nativeFunction_T)(
     visitor_T* visitor,
     ast_T** args,
     int argsSize
-);
+)
 ```
 
 The callback receives the visitor and the original AST argument nodes. This allows native implementations to evaluate arguments through the existing visitor, preserving Dara's evaluation behavior.
@@ -372,7 +374,7 @@ Constructs define custom data types with fields and methods. Fields can contain 
 construct Stats {
     int health;
     int stamina;
-};
+}
 
 construct Player {
     string name;
@@ -381,8 +383,8 @@ construct Player {
     func report(Player& player) -> noval {
         std:io.print(player.name);
         std:io.print(player.stats.health);
-    };
-};
+    }
+}
 
 Player player = construct Player(
     .name = "Player",
@@ -405,8 +407,8 @@ Namespaces organize declarations under qualified names. The `:` separator is use
 std:io.print("Hello, Dara!");
 
 func main() -> noval {
-    std:io.print("Running Dara v0.4");
-};
+    std:io.print("Running Dara v0.5");
+}
 
 main();
 ```
@@ -417,14 +419,14 @@ Namespaces can be extended across multiple declarations. Additional blocks with 
 namespace test {
     func returnNothing1() -> noval {
         return;
-    };
-};
+    }
+}
 
 namespace test {
     func returnNothing2() -> noval {
         return;
-    };
-};
+    }
+}
 
 test:returnNothing1();
 test:returnNothing2();
@@ -437,9 +439,9 @@ namespace game {
     namespace player {
         func update() -> noval {
             std:io.print("Updating player");
-        };
-    };
-};
+        }
+    }
+}
 
 game:player:update();
 ```
@@ -453,15 +455,15 @@ namespace a {
     func add() -> noval {
         std:io.print("add :)");
         b:add();
-    };
-};
+    }
+}
 
 namespace b {
     func add() -> noval {
         std:io.print("add :(");
         a:add();
-    };
-};
+    }
+}
 ```
 
 This example demonstrates namespace-qualified mutual recursion. Since neither function has a termination condition, calling either function results in infinite recursion.
@@ -524,10 +526,10 @@ func main() -> noval {
 
     for (int i = 0; i < numIterations; i += 1) {
         result += i;
-    };
+    }
 
     std:util.timer_end();
-};
+}
 
 main();
 ```
@@ -555,7 +557,7 @@ A parameter declared with `&` borrows an existing assignable value. Changes thro
 ```dara
 func damage(int& health) -> noval {
     health -= 10;
-};
+}
 
 int health = 100;
 damage(health);
@@ -573,7 +575,7 @@ Prefix a function parameter with `const` to make its local binding read-only:
 func inspect(const int value) -> noval {
     std:io.print(value);
     value = 50; // Runtime error E2050
-};
+}
 ```
 
 A regular parameter receives a copy of the argument. A constant regular parameter therefore prevents reassignment of that local copy without affecting the caller's variable.
@@ -583,7 +585,7 @@ Combining `const` with `&` creates a read-only reference:
 ```dara
 func inspect(const int& value) -> noval {
     std:io.print(value);
-};
+}
 ```
 
 A constant reference can bind to either a mutable or constant variable. It can read the referenced value but cannot modify it.
@@ -593,7 +595,7 @@ A mutable reference cannot bind to a constant variable:
 ```dara
 func modify(int& value) -> noval {
     value = 50;
-};
+}
 
 int mutableNumber = 10;
 const int immutableNumber = 20;

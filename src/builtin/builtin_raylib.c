@@ -9,4 +9,6 @@ void builtinRegisterRaylib(scope_T* scope) {
 	scopeRegisterNativeFunction(scope, "rl:EndDrawing", builtinRaylibFuncEndDrawing);
 	scopeRegisterNativeFunction(scope, "rl:InitWindow", builtinRaylibFuncInitWindow);
 	scopeRegisterNativeFunction(scope, "rl:WindowShouldClose", builtinRaylibFuncWindowShouldClose);
+	scopeRegisterNativeFunction(scope, "rl:SetTargetFPS", builtinRaylibFuncSetTargetFPS);
+	scopeRegisterNativeFunction(scope, "rl:DrawFPS", builtinRaylibFuncDrawFPS);
 }

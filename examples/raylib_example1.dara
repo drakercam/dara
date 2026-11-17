@@ -5,12 +5,12 @@ construct Window {
 	
 	func init(Window window) -> noval {
 		rl:InitWindow(window.width, window.height, window.title);
-	};
+	}
 	
 	func close() -> noval {
 		rl:CloseWindow();
-	};
-};
+	}
+}
 
 const auto c = rl:BLUE;
 const auto background = rl:GREEN;
@@ -23,10 +23,10 @@ construct Rectangle {
     
     func draw(Rectangle rect) -> noval {
         rl:DrawRectangle(rect.x, rect.y, rect.sizeX, rect.sizeY, c);
-    };
-};
+    }
+}
 
-func update() -> noval {};
+func update() -> noval {}
 
 func draw(const array rectangles) -> noval {
     rl:BeginDrawing();
@@ -36,17 +36,16 @@ func draw(const array rectangles) -> noval {
     for (int i = 0; i < std:array.size(rectangles); i += 1) {
         auto rect = std:array.at(rectangles, i);
         Rectangle.draw(rect);
-    };
+    }
 
     rl:EndDrawing();
-};
+}
 
 func main() -> noval {
-    Window window = construct Window(
-		.width = 800,
-		.height = 600,
-		.title = "example"
-    );
+    Window window = construct Window();
+    window.width = 800;
+    window.height = 600;
+    window.title = "example";
     Window.init(window);
     
     array rectangles = std:array(4) -> Rectangle;
@@ -58,9 +57,9 @@ func main() -> noval {
     while (!rl:WindowShouldClose()) {
         update();
         draw(rectangles);
-    };
+    }
 
     Window.close();
-};
+}
 
 main();

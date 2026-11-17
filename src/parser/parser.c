@@ -368,6 +368,53 @@ ast_T* parserParseStatement(parser_T* parser, scope_T* scope) {
     return parserParseComparison(parser, scope);
 }
 
+static void parserRegisterFunctionDefinition(scope_T* scope, ast_T* statement, ast_T* compound) {
+	char* namespacePrefix = parserGetNamespacePrefix(scope);
+	
+	if (!namespacePrefix) {
+		printf("Failed to allocate namespace prefix.\n");
+		astFree(compound);
+		exit(1);
+	}
+	
+	size_t prefixLength = strlen(namespacePrefix);
+	size_t nameLength = strlen(statement->functionDefinitionName);
+	
+	char* qualifiedName = malloc(prefixLength + nameLength + 1);
+	
+	if (!qualifiedName) {
+		printf("Failed to allocated qualified function name.\n");
+		free(namespacePrefix);
+		astFree(compound);
+		exit(1);
+	}
+	
+	memcpy(qualifiedName, namespacePrefix, prefixLength);
+	memcpy(qualifiedName + prefixLength, statement->functionDefinitionName, nameLength + 1);
+	
+	callable_T* callable = scopeRegisterDaraFunction(parserGetRootScope(scope), qualifiedName, statement);
+	
+	if (!callable) {
+		printf("Failed to register function '%s'.\n", qualifiedName);
+		free(qualifiedName);
+		free(namespacePrefix);
+		astFree(compound);
+		exit(1);
+	}
+	
+	free(qualifiedName);
+	free(namespacePrefix);
+}
+
+static bool parserIsBlockDefinition(ast_T* statement) {
+	return statement->type == AST_CONSTRUCT_DEFINITION ||
+		   statement->type == AST_NAMESPACE_DEFINITION || 
+		   statement->type == AST_FUNCTION_DEFINITION ||
+		   statement->type == AST_FOR_LOOP ||
+		   statement->type == AST_WHILE_LOOP ||
+		   statement->type == AST_IF_STATEMENT;
+}
+
 ast_T* parserParseStatements(parser_T* parser, scope_T* scope) {
     ast_T* compound = astInit(AST_COMPOUND);
     parserSetNodeLocation(compound, parser->currentToken);
@@ -384,49 +431,7 @@ ast_T* parserParseStatements(parser_T* parser, scope_T* scope) {
 		
 		// Register function definitions in the callable registry.
 		if (statement->type == AST_FUNCTION_DEFINITION) {
-			char* namespacePrefix = parserGetNamespacePrefix(scope);
-
-			if (!namespacePrefix) {
-				printf("Failed to allocate namespace prefix.\n");
-				astFree(compound);
-				exit(EXIT_FAILURE);
-			}
-
-			size_t prefixLength = strlen(namespacePrefix);
-			size_t nameLength = strlen(statement->functionDefinitionName);
-
-			char* qualifiedName = malloc(prefixLength + nameLength + 1);
-
-			if (!qualifiedName) {
-				free(namespacePrefix);
-				astFree(compound);
-				printf("Failed to allocate qualified function name.\n");
-				exit(EXIT_FAILURE);
-			}
-
-			memcpy(qualifiedName, namespacePrefix, prefixLength);
-			memcpy(
-				qualifiedName + prefixLength,
-				statement->functionDefinitionName,
-				nameLength + 1
-			);
-
-			callable_T* callable = scopeRegisterDaraFunction(
-				parserGetRootScope(scope),
-				qualifiedName,
-				statement
-			);
-
-			if (!callable) {
-				printf("Failed to register function '%s'.\n", qualifiedName);
-				free(qualifiedName);
-				free(namespacePrefix);
-				astFree(compound);
-				exit(EXIT_FAILURE);
-			}
-
-			free(qualifiedName);
-			free(namespacePrefix);
+			parserRegisterFunctionDefinition(scope, statement, compound);
 		}
 
         size_t newSize = compound->compoundSize + 1;
@@ -446,6 +451,10 @@ ast_T* parserParseStatements(parser_T* parser, scope_T* scope) {
         compound->compoundValue = newValue;
         compound->compoundValue[newSize - 1] = statement;
         compound->compoundSize = newSize;
+
+		if (parserIsBlockDefinition(statement)) {
+			continue;	// no need for semi-colon
+		}
 
         if (parser->currentToken->type == TOKEN_SEMI) {
             parserEat(parser, TOKEN_SEMI);
@@ -468,6 +477,38 @@ ast_T* parserParseStatements(parser_T* parser, scope_T* scope) {
     }
 
     return compound;
+}
+
+static void parserParseMethodCallArguments(parser_T* parser, scope_T* scope, ast_T* methodCall) {
+	parserEat(parser, TOKEN_LEFTPAREN);
+	
+	if (parser->currentToken->type != TOKEN_RIGHTPAREN) {
+		while (1) {
+			ast_T* argument = parserParseComparison(parser, scope);
+			
+			size_t newSize = methodCall->methodCallArgumentsSize+1;
+			
+			ast_T** newArguments = realloc(methodCall->methodCallArguments, newSize * sizeof(ast_T*));
+			if (!newArguments) {
+				printf("Failed to allocate method arguments.\n");
+				astFree(argument);
+				astFree(methodCall);
+				exit(1);
+			}
+			
+			methodCall->methodCallArguments = newArguments;
+			methodCall->methodCallArguments[newSize - 1] = argument;
+			methodCall->methodCallArgumentsSize = newSize;
+			
+			if (parser->currentToken->type != TOKEN_COMMA) {
+				break;
+			}
+			
+			parserEat(parser, TOKEN_COMMA);
+		}
+	}
+	
+	parserEat(parser, TOKEN_RIGHTPAREN);
 }
 
 ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
@@ -547,43 +588,10 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
 				);
 
 				parserEat(parser, TOKEN_ID);
-				parserEat(parser, TOKEN_LEFTPAREN);
-
 				methodCall->scope = scope;
 
-				if (parser->currentToken->type != TOKEN_RIGHTPAREN) {
-					while (1) {
-						ast_T* argument =
-							parserParseComparison(parser, scope);
-
-						size_t newSize =
-							methodCall->methodCallArgumentsSize + 1;
-
-						ast_T** newArguments = realloc(
-							methodCall->methodCallArguments,
-							newSize * sizeof(ast_T*)
-						);
-
-						if (newArguments == (void*)0) {
-							printf("Failed to allocate method arguments\n");
-							astFree(argument);
-							astFree(methodCall);
-							exit(EXIT_FAILURE);
-						}
-
-						methodCall->methodCallArguments = newArguments;
-						methodCall->methodCallArguments[newSize - 1] = argument;
-						methodCall->methodCallArgumentsSize = newSize;
-
-						if (parser->currentToken->type != TOKEN_COMMA) {
-							break;
-						}
-
-						parserEat(parser, TOKEN_COMMA);
-					}
-				}
-
-				parserEat(parser, TOKEN_RIGHTPAREN);
+				parserParseMethodCallArguments(parser, scope, methodCall);
+				
 				return methodCall;
 			}
 
@@ -670,40 +678,7 @@ ast_T* parserParseFactor(parser_T* parser, scope_T* scope) {
                     astFree(object);
                     object = (void*)0;
 
-                    parserEat(parser, TOKEN_LEFTPAREN);
-
-                    if (parser->currentToken->type != TOKEN_RIGHTPAREN) {
-                        while (1) {
-                            ast_T* argument = parserParseComparison(parser, scope);
-
-                            size_t newSize =
-                                methodCall->methodCallArgumentsSize + 1;
-
-                            ast_T** newArguments = realloc(
-                                methodCall->methodCallArguments,
-                                newSize * sizeof(ast_T*)
-                            );
-
-                            if (newArguments == (void*)0) {
-                                printf("Failed to allocate method arguments\n");
-                                astFree(argument);
-                                astFree(methodCall);
-                                exit(EXIT_FAILURE);
-                            }
-
-                            methodCall->methodCallArguments = newArguments;
-                            methodCall->methodCallArguments[newSize - 1] = argument;
-                            methodCall->methodCallArgumentsSize = newSize;
-
-                            if (parser->currentToken->type != TOKEN_COMMA) {
-                                break;
-                            }
-
-                            parserEat(parser, TOKEN_COMMA);
-                        }
-                    }
-
-                    parserEat(parser, TOKEN_RIGHTPAREN);
+					parserParseMethodCallArguments(parser, scope, methodCall);
 
                     object = methodCall;
                 }

@@ -20,6 +20,7 @@ lexer_T* lexerInit(char* contents, const char* fileName);
 void lexerFree(lexer_T* lexer);
 void lexerAdvance(lexer_T* lexer);
 void lexerSkipWhitespace(lexer_T* lexer);
+void lexerSkipComment(lexer_T* lexer);
 
 token_T* lexerGetNextToken(lexer_T* lexer);
 token_T* lexerCollectString(lexer_T* lexer);

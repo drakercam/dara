@@ -180,6 +180,10 @@ bool visitorArgumentMatchesType(ast_T* parameter, value_T* argument) {
     if (strcmp(type, "array") == 0) {
 		return argument->type == VALUE_ARRAY;
 	}
+	
+	if (strcmp(type, "bool") == 0) {
+		return argument->type == VALUE_BOOLEAN;
+	}
 
     // A non-builtin type should match a construct's name.
     if (argument->type == VALUE_CONSTRUCT) {
@@ -208,7 +212,7 @@ void visitorReportDiagnostic(visitor_T* visitor, ast_T* node, const char* code, 
 
     if (diagnostic == (void*)0) {
         fprintf(stderr, "Failed to allocate diagnostic.\n");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
     diagnosticPrint(diagnostic, visitor->fileName);
